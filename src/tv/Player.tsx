@@ -775,7 +775,7 @@ function VideoPlayer({
         <div className="bg-player-top pointer-events-none absolute inset-x-0 top-0 h-40" />
         <div className="bg-player-bottom pointer-events-none absolute inset-x-0 bottom-0 h-56" />
 
-        <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-6 px-10 pt-8">
+        <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-6 px-4 pt-4 sm:px-10 sm:pt-8">
           <button
             onClick={close}
             aria-label="Volver"
@@ -880,7 +880,7 @@ function VideoPlayer({
         )}
         {panel === "tracks" && (
           <div
-            className="absolute right-10 top-24 z-10 flex max-h-[70vh] w-[34rem] gap-6 overflow-auto rounded-xl bg-popover/95 p-5 text-sm text-popover-foreground shadow-2xl backdrop-blur"
+            className="absolute right-2 top-20 sm:right-10 sm:top-24 z-10 flex max-h-[70vh] w-[min(34rem,calc(100vw-1rem))] gap-6 overflow-auto rounded-xl bg-popover/95 p-5 text-sm text-popover-foreground shadow-2xl backdrop-blur"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex-1">
@@ -973,7 +973,7 @@ function VideoPlayer({
           </div>
         </div>
 
-        <div className="absolute inset-x-0 bottom-0 px-10 pb-8">
+        <div className="absolute inset-x-0 bottom-0 px-4 pb-4 sm:px-10 sm:pb-8">
           <div
             ref={bar}
             className="group relative h-6 cursor-pointer touch-none"
@@ -1086,13 +1086,13 @@ function VideoPlayer({
       {showSkipIntro && (
         <button
           onClick={() => intro && seekTo(intro.e)}
-          className="absolute bottom-40 right-10 rounded-md border border-overlay-foreground/50 bg-scrim/60 px-5 py-2.5 font-semibold backdrop-blur hover:bg-overlay-foreground hover:text-scrim"
+          className="absolute bottom-32 right-4 sm:bottom-40 sm:right-10 rounded-md border border-overlay-foreground/50 bg-scrim/60 px-5 py-2.5 font-semibold backdrop-blur hover:bg-overlay-foreground hover:text-scrim"
         >
           Saltar intro
         </button>
       )}
       {showNextCard && next && (
-        <div className="absolute bottom-40 right-10 w-80 overflow-hidden rounded-lg bg-popover/95 text-popover-foreground shadow-2xl">
+        <div className="absolute bottom-32 right-4 sm:bottom-40 sm:right-10 w-80 overflow-hidden rounded-lg bg-popover/95 text-popover-foreground shadow-2xl">
           <div className="p-4">
             <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               {broadcast ? "A continuación" : "Siguiente episodio"} en {Math.ceil(remaining)} s
@@ -1183,7 +1183,7 @@ function PlayPanel(p: {
 }) {
   return (
     <div
-      className="absolute right-10 top-24 z-10 max-h-[72vh] w-[26rem] space-y-5 overflow-auto rounded-xl bg-popover/95 p-5 text-sm text-popover-foreground shadow-2xl backdrop-blur"
+      className="absolute right-2 top-20 sm:right-10 sm:top-24 z-10 max-h-[72vh] w-[min(26rem,calc(100vw-1rem))] space-y-5 overflow-auto rounded-xl bg-popover/95 p-5 text-sm text-popover-foreground shadow-2xl backdrop-blur"
       onClick={(e) => e.stopPropagation()}
     >
       <div>
@@ -1297,7 +1297,7 @@ function SubsPanel({
   }, []);
   return (
     <div
-      className="absolute right-10 top-24 z-10 flex max-h-[72vh] w-[34rem] flex-col rounded-xl bg-popover/95 p-5 text-sm text-popover-foreground shadow-2xl backdrop-blur"
+      className="absolute right-2 top-20 sm:right-10 sm:top-24 z-10 flex max-h-[72vh] w-[min(34rem,calc(100vw-1rem))] flex-col rounded-xl bg-popover/95 p-5 text-sm text-popover-foreground shadow-2xl backdrop-blur"
       onClick={(e) => e.stopPropagation()}
     >
       <div className="mb-3 flex items-center gap-2">

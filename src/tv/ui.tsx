@@ -117,13 +117,13 @@ export function Row({
     sc.current?.scrollBy({ left: d * sc.current.clientWidth * 0.85, behavior: "smooth" });
   return (
     <section className="group/row relative">
-      <div className="mb-2 flex items-baseline gap-4 px-12">
-        <h2 className="text-xl font-bold">{title}</h2>
+      <div className="mb-1 flex items-baseline gap-4 px-4 sm:mb-2 sm:px-8 lg:px-12">
+        <h2 className="text-base font-bold sm:text-xl">{title}</h2>
         {action}
       </div>
       <div
         ref={sc}
-        className="scrollbar-none flex gap-3 overflow-x-auto scroll-smooth px-12 pb-6 pt-2"
+        className="scrollbar-none flex gap-2 overflow-x-auto scroll-smooth px-4 pb-5 pt-2 sm:gap-3 sm:px-8 sm:pb-6 lg:px-12"
       >
         {children}
       </div>
@@ -167,10 +167,10 @@ export function Card({
   const th = useThumb(bg ? undefined : thumbEp);
   const img = bg ?? th;
   return (
-    <div className="group/card relative w-72 shrink-0">
+    <div className="group/card relative w-52 shrink-0 sm:w-64 lg:w-72">
       <button
         onClick={onOpen}
-        className="block w-full overflow-hidden rounded-lg bg-card text-left outline-none ring-primary transition duration-200 focus-visible:ring-4 group-hover/card:scale-[1.04] group-hover/card:shadow-2xl"
+        className="card-frame block w-full overflow-hidden rounded-lg bg-card text-left outline-none ring-primary transition duration-200 focus-visible:ring-4 group-hover/card:scale-[1.04] group-hover/card:shadow-2xl"
       >
         <div className="relative aspect-video">
           <Art src={img} alt={t.meta?.title ?? t.name} className="absolute inset-0 size-full" />
@@ -215,11 +215,11 @@ export function PosterArt({ t, className = "" }: { t: Title; className?: string 
 /** Tarjeta vertical (póster). */
 export function PosterCard({ t, onOpen }: { t: Title; onOpen: () => void }) {
   return (
-    <button onClick={onOpen} className="group/card w-44 shrink-0 text-left outline-none">
-      <div className="relative aspect-[2/3] overflow-hidden rounded-lg bg-card ring-primary transition duration-200 group-hover/card:scale-[1.04] group-focus-visible/card:ring-4">
+    <button onClick={onOpen} className="group/card w-28 shrink-0 text-left outline-none sm:w-36 lg:w-44">
+      <div className="card-frame relative aspect-[2/3] overflow-hidden rounded-lg bg-card ring-primary transition duration-200 group-hover/card:scale-[1.04] group-focus-visible/card:ring-4">
         <PosterArt t={t} className="absolute inset-0 size-full" />
       </div>
-      <p className="mt-2 truncate text-sm font-semibold">{t.meta?.title ?? t.name}</p>
+      <p className="mt-2 truncate text-xs font-semibold sm:text-sm">{t.meta?.title ?? t.name}</p>
       <p className="truncate text-xs text-muted-foreground">
         {KIND_LABEL[t.kind]}
         {t.meta?.year ? ` · ${t.meta.year}` : ""}

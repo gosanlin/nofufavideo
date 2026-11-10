@@ -1,6 +1,5 @@
 import { buildTitle, cleanName, hash } from "./library";
 import type { Title } from "./types";
-import { getLuluFiles } from "./lulu.functions";
 
 /** Configuración de LuluStream / Luluvido (heredada de LuluFlix). */
 export const LULU = {
@@ -17,11 +16,9 @@ export interface LuluVideo {
   thumb?: string;
   length?: string;
   folder?: string;
+  uploaded?: string;
 }
 
-/** Duración (segundos) de cada vídeo según la API. */
-const LENGTHS = new Map<string, number>();
-export const lengthOf = (url: string) => LENGTHS.get(url) ?? 0;
 
 /** URL del embed con reproducción automática y, opcionalmente, segundo de inicio. */
 export function embedSrc(url: string, at = 0, autoplay = false): string {
@@ -44,6 +41,7 @@ export function normalize(v: any): LuluVideo {
     thumb: v.thumb || v.thumbnail || v.single_img || v.splash_img || "",
     length: v.length ? String(v.length) : "",
     folder: v.folder || v.fld_name || "",
+    uploaded: String(v.uploaded || v.created || ""),
   };
 }
 
@@ -62,8 +60,6 @@ export function seriesKey(v: LuluVideo): string | null {
 export function titlesFromLulu(list: LuluVideo[]): Title[] {
   const groups = new Map<string, LuluVideo[]>();
   for (const v of list.filter((x) => x.code)) {
-    const len = parseFloat(v.length ?? "");
-    if (len > 0) LENGTHS.set(embedUrl(v.code), len);
     const k = seriesKey(v) ?? `__${v.code}`;
     groups.set(k, [...(groups.get(k) ?? []), v]);
   }
@@ -80,7 +76,7 @@ export function titlesFromLulu(list: LuluVideo[]): Title[] {
         rel: series ? v.title : `${v.title}.mp4`,
         name: v.title,
         url: embedUrl(v.code),
-        mtime: now - (gi * 100 + i) * 1000,
+        mtime: Date.parse(String(v.uploaded ?? "").replace(" ", "T")) || now - (gi * 100 + i) * 1000,
       })),
       images: thumb ? { poster: thumb, background: thumb } : undefined,
     });
@@ -90,29 +86,48 @@ export function titlesFromLulu(list: LuluVideo[]): Title[] {
 const parseJson = (t: string) => JSON.parse(t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1));
 const GATEWAYS = [
   (u: string) => u,
+  (u: string) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
   (u: string) => "https://api.allorigins.win/get?url=" + encodeURIComponent(u),
+  (u: string) => "https://corsproxy.io/?url=" + encodeURIComponent(u),
   (u: string) => "https://r.jina.ai/" + u,
 ];
 
-async function fromApi(): Promise<LuluVideo[]> {
-  if (!LULU.API_KEY) throw new Error("sin clave");
+/** Clave de Luluvido guardada en este navegador (Ajustes), o la de la build. */
+const KEY_STORE = "nofufa.luluKey";
+export const getApiKey = () => {
+  try { return localStorage.getItem(KEY_STORE) || LULU.API_KEY; } catch { return LULU.API_KEY; }
+};
+export const setApiKey = (k: string) => {
+  try { if (k.trim()) localStorage.setItem(KEY_STORE, k.trim()); else localStorage.removeItem(KEY_STORE); } catch { /* */ }
+};
+
+type ApiPage = { status?: number; msg?: string; contents?: string; result?: { files?: unknown[]; pages?: number | string } };
+
+async function apiPage(key: string, p: number): Promise<ApiPage> {
+  // "_" rompe la caché de las pasarelas: sin él devuelven la lista antigua y no salen los vídeos nuevos
+  const u = `${LULU.API_BASE}/file/list?key=${encodeURIComponent(key)}&per_page=100&page=${p}&_=${Date.now()}`;
+  for (const g of GATEWAYS) {
+    try {
+      const r = await fetch(g(u), { cache: "no-store" });
+      if (!r.ok) continue;
+      let x = parseJson(await r.text());
+      if (typeof x.contents === "string") x = parseJson(x.contents);
+      if (x.status === 200) return x;
+    } catch { /* siguiente pasarela */ }
+  }
+  throw new Error("API no disponible");
+}
+
+/** Recorre TODAS las páginas que indica la API (antes se cortaba si una página traía menos de 200). */
+export async function fromApi(key = getApiKey()): Promise<LuluVideo[]> {
+  if (!key) throw new Error("sin clave");
   const out: LuluVideo[] = [];
-  for (let p = 1; p <= 50; p++) {
-    const u = `${LULU.API_BASE}/file/list?key=${encodeURIComponent(LULU.API_KEY)}&per_page=200&page=${p}`;
-    let j: { status?: number; contents?: string; result?: { files?: unknown[] } } | null = null;
-    for (const g of GATEWAYS) {
-      try {
-        const r = await fetch(g(u), { cache: "no-store" });
-        if (!r.ok) continue;
-        let x = parseJson(await r.text());
-        if (typeof x.contents === "string") x = parseJson(x.contents);
-        if (x.status === 200) { j = x; break; }
-      } catch { /* siguiente pasarela */ }
-    }
-    if (!j) throw new Error("API no disponible");
+  for (let p = 1; p <= 200; p++) {
+    const j = await apiPage(key, p);
     const files = j.result?.files ?? [];
     out.push(...files.map(normalize));
-    if (files.length < 200) break;
+    const pages = Number(j.result?.pages) || 0;
+    if (!files.length || (pages ? p >= pages : files.length < 100)) break;
   }
   return out;
 }
@@ -124,14 +139,18 @@ async function fromJson(): Promise<LuluVideo[]> {
   return (Array.isArray(j) ? j : j.files ?? []).map(normalize);
 }
 
-/** Carga el catálogo: primero la lista en directo desde el servidor (vídeos nuevos al momento), después videos.json. */
+/** Une listas sin repetir códigos; la primera lista manda (la API en directo es la más reciente). */
+export function mergeVideos(...lists: LuluVideo[][]): LuluVideo[] {
+  const seen = new Map<string, LuluVideo>();
+  for (const l of lists) for (const v of l) if (v.code && !seen.has(v.code)) seen.set(v.code, v);
+  return [...seen.values()];
+}
+
+/** Carga el catálogo: API en directo (si hay clave) + videos.json, combinados. */
 export async function loadLulu(_fresh = false): Promise<Title[]> {
-  let list: LuluVideo[] = [];
-  try {
-    const r = await getLuluFiles();
-    if (r.ok) list = r.files.map(normalize);
-  } catch { /* servidor no disponible */ }
-  if (!list.length) { try { list = await fromApi(); } catch { /* sin api */ } }
-  if (!list.length) { try { list = await fromJson(); } catch { /* sin json */ } }
-  return titlesFromLulu(list);
+  const [api, json] = await Promise.all([
+    fromApi().catch(() => [] as LuluVideo[]),
+    fromJson().catch(() => [] as LuluVideo[]),
+  ]);
+  return titlesFromLulu(mergeVideos(api, json));
 }

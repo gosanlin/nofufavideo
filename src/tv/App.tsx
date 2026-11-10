@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FolderOpen, RefreshCw, Search, Settings, X, ArrowLeft, Trash2, FolderPlus } from "lucide-react";
+import { FolderOpen, RefreshCw, Search, Settings, X, ArrowLeft, Trash2, FolderPlus, Home as HomeIcon, Film, Tv, Sparkles, Bookmark } from "lucide-react";
 import type { Episode, Keys, Meta, Title } from "./types";
 import { demoTitles, shuffleQueue, titlesFromRoots } from "./library";
 import {
@@ -21,8 +21,7 @@ import { Home, Browse } from "./Home";
 import { TitlePage } from "./TitlePage";
 import { Player } from "./Player";
 import logo from "./logo.png";
-import { lengthOf, loadLulu } from "./lulu";
-import { Home as HomeIcon, Film, Tv, Sparkles, Bookmark } from "lucide-react";
+import { getApiKey, loadLulu, setApiKey } from "./lulu";
 
 type Page = "home" | "movie" | "series" | "anime" | "video" | "list" | "search" | "title";
 interface View {
@@ -36,12 +35,12 @@ interface Playing {
   queue: string[] | null;
 }
 
-const NAV: [Page, string][] = [
-  ["home", "Inicio"],
-  ["movie", "Películas"],
-  ["series", "Series"],
-  ["anime", "Anime"],
-  ["list", "Mi lista"],
+const NAV: [Page, string, typeof HomeIcon][] = [
+  ["home", "Inicio", HomeIcon],
+  ["movie", "Películas", Film],
+  ["series", "Series", Tv],
+  ["anime", "Anime", Sparkles],
+  ["list", "Mi lista", Bookmark],
 ];
 
 export function TvApp() {
@@ -60,6 +59,8 @@ export function TvApp() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [catalogMsg, setCatalogMsg] = useState("");
   const main = useRef<HTMLDivElement>(null);
 
   const enrich = useCallback((list: Title[]) => {
@@ -143,6 +144,7 @@ export function TvApp() {
       if (fresh) clearMetaCache();
       const list = await loadLulu(fresh);
       load(list.length ? list : demoTitles());
+      if (fresh) setCatalogMsg(list.length ? `Catálogo actualizado: ${list.length} títulos.` : "No se encontraron vídeos.");
     } catch {
       load(demoTitles());
     } finally {
@@ -206,19 +208,6 @@ export function TvApp() {
   };
   const startPlay = (ep: Episode, at: number) =>
     setPlay({ epId: ep.id, titleId: ep.titleId, at, queue: null });
-  /** Punto aleatorio de la emisión (minuto y segundo) dentro del episodio. */
-  const randomAt = (id: string) => {
-    const len = lengthOf(epById.get(id)?.url ?? "");
-    return len > 120 ? Math.floor(len * (0.05 + Math.random() * 0.8)) : Math.floor(Math.random() * 600);
-  };
-  const broadcastPool = useRef<string[] | null>(null);
-  const broadcast = (pool: Episode[]) => {
-    if (!pool.length) return;
-    broadcastPool.current = pool.map((e) => e.id);
-    const qu = shuffleQueue(pool.map((e) => e.id));
-    setPlay({ epId: qu[0]!, titleId: epById.get(qu[0]!)!.titleId, at: randomAt(qu[0]!), queue: qu.slice(1) });
-  };
-
   const cur = play ? epById.get(play.epId) : undefined;
   const curTitle = cur ? byId.get(cur.titleId) : undefined;
   const nextEp = useMemo(() => {
@@ -236,7 +225,7 @@ export function TvApp() {
         if (!qu.length) qu = shuffleQueue(poolFor(), Math.random, p.epId);
         const id = qu[0];
         if (!id) return null;
-        return { epId: id, titleId: epById.get(id)!.titleId, at: randomAt(id), queue: qu.slice(1) };
+        return { epId: id, titleId: epById.get(id)!.titleId, at: 0, queue: qu.slice(1) };
       }
       return nextEp
         ? {
@@ -247,23 +236,15 @@ export function TvApp() {
           }
         : null;
     });
-  // pool de una emisión: si empezó en un título, ese título; si no, toda la biblioteca
-  const broadcastScope = useRef<string | null>(null);
-  const poolFor = () =>
-    broadcastPool.current ??
-    (broadcastScope.current ? (byId.get(broadcastScope.current)?.episodes ?? []) : allEps).map(
-      (e) => e.id,
-    );
+  const poolFor = () => allEps.map((e) => e.id);
   const randomNow = () => {
     if (!cur) return;
     const pool = play?.queue
-      ? broadcastPool.current
-        ? (broadcastPool.current.map((id) => epById.get(id)).filter(Boolean) as Episode[])
-        : allEps
+      ? allEps
       : (curTitle?.episodes ?? allEps);
     const others = pool.filter((e) => e.id !== cur.id);
     const e = others[Math.floor(Math.random() * others.length)];
-    if (e) setPlay((p) => p && { ...p, epId: e.id, titleId: e.titleId, at: p.queue ? randomAt(e.id) : 0 });
+    if (e) setPlay((p) => p && { ...p, epId: e.id, titleId: e.titleId, at: 0 });
   };
 
   const filtered = (k: Page) => {
@@ -304,20 +285,19 @@ export function TvApp() {
   return (
     <div className="h-screen bg-background text-foreground">
       <header
-        className={`fixed inset-x-0 top-0 z-40 flex h-14 items-center gap-3 px-4 transition-colors sm:h-16 sm:gap-6 sm:px-8 lg:gap-8 lg:px-12 ${scrolled ? "bg-nav" : "bg-nav-fade"}`}
+        className={`fixed inset-x-0 top-0 z-40 flex h-14 items-center gap-3 px-4 transition-colors sm:h-16 sm:gap-6 sm:px-8 lg:px-12 ${scrolled || view.page !== "home" ? "bg-nav" : "bg-nav-fade"}`}
       >
         {history.length > 0 && view.page === "title" && (
-          <button
-            onClick={back}
-            aria-label="Atrás"
-            className="text-muted-foreground lg:-ml-6 hover:text-foreground"
-          >
+          <button onClick={back} aria-label="Atrás" className="text-muted-foreground hover:text-foreground">
             <ArrowLeft className="size-5" />
           </button>
         )}
-        <button onClick={() => go({ page: "home" })} className="flex items-center gap-2.5">
-          <img src={logo} alt="" className="size-8 rounded-full" />
-          <span className="hidden text-lg font-extrabold tracking-tight sm:inline">
+        <button
+          onClick={() => go({ page: "home" })}
+          className={`flex shrink-0 items-center gap-2 ${searchOpen ? "hidden sm:flex" : ""}`}
+        >
+          <img src={logo} alt="" className="size-7 rounded-full sm:size-8" />
+          <span className="text-base font-extrabold tracking-tight sm:text-lg">
             Nofufa<span className="text-primary"> Video</span>
           </span>
         </button>
@@ -326,39 +306,70 @@ export function TvApp() {
             <button
               key={p}
               onClick={() => go({ page: p })}
-              className={`rounded-md px-3 py-1.5 text-[0.95rem] font-semibold transition hover:bg-foreground/10 ${view.page === p ? "text-foreground" : "text-muted-foreground"}`}
+              className={`nav-link ${view.page === p ? "nav-link-active" : ""}`}
             >
               {l}
             </button>
           ))}
         </nav>
-        <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
-          <label className="flex h-9 items-center gap-2 rounded-md bg-foreground/10 px-3 focus-within:ring-2 focus-within:ring-primary">
-            <Search className="size-4 text-muted-foreground" />
+        <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-2">
+          <label
+            className={`h-9 min-w-0 items-center gap-2 rounded-md bg-foreground/10 px-3 focus-within:ring-2 focus-within:ring-primary ${searchOpen ? "flex" : "hidden sm:flex"}`}
+          >
+            <Search className="size-4 shrink-0 text-muted-foreground" />
             <input
               value={q}
+              autoFocus={searchOpen}
               onChange={(e) => {
                 setQ(e.target.value);
                 if (view.page !== "search") go({ page: "search" });
               }}
               placeholder="Buscar"
-              className="w-24 min-w-0 bg-transparent sm:w-44 text-sm outline-none placeholder:text-muted-foreground"
+              className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground sm:w-44"
             />
-            {q && (
-              <button onClick={() => setQ("")} aria-label="Borrar búsqueda">
+            {(q || searchOpen) && (
+              <button
+                onClick={() => {
+                  setQ("");
+                  setSearchOpen(false);
+                }}
+                aria-label="Borrar búsqueda"
+              >
                 <X className="size-4" />
               </button>
             )}
           </label>
+          {!searchOpen && (
+            <button
+              onClick={() => setSearchOpen(true)}
+              aria-label="Buscar"
+              className="grid size-9 place-items-center rounded-full hover:bg-foreground/10 sm:hidden"
+            >
+              <Search className="size-5" />
+            </button>
+          )}
           <button
             onClick={() => setSettingsOpen(true)}
             aria-label="Ajustes"
-            className="grid size-9 place-items-center rounded-full hover:bg-foreground/10"
+            className="grid size-9 shrink-0 place-items-center rounded-full hover:bg-foreground/10"
           >
             <Settings className="size-5" />
           </button>
         </div>
       </header>
+
+      <nav className="bg-nav fixed inset-x-0 bottom-0 z-40 flex justify-around pb-[env(safe-area-inset-bottom)] md:hidden">
+        {NAV.map(([p, l, Icon]) => (
+          <button
+            key={p}
+            onClick={() => go({ page: p })}
+            className={`tab-link ${view.page === p ? "tab-link-active" : ""}`}
+          >
+            <Icon className="size-5" />
+            {l}
+          </button>
+        ))}
+      </nav>
 
       <div
         ref={main}
@@ -414,22 +425,6 @@ export function TvApp() {
       </div>
 
 
-      <nav className="bg-nav fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t pb-[env(safe-area-inset-bottom)] md:hidden">
-        {NAV.map(([p, l]) => {
-          const Icon = { home: HomeIcon, movie: Film, series: Tv, anime: Sparkles, list: Bookmark }[p as "home"] ?? HomeIcon;
-          return (
-            <button
-              key={p}
-              onClick={() => go({ page: p })}
-              className={`flex flex-col items-center gap-0.5 py-2 text-[0.7rem] font-semibold ${view.page === p ? "text-primary" : "text-muted-foreground"}`}
-            >
-              <Icon className="size-5" />
-              {l}
-            </button>
-          );
-        })}
-      </nav>
-
       {settingsOpen && (
         <div
           className="tv-modal fixed inset-0 z-50 grid place-items-center bg-scrim/70 p-3 sm:p-6"
@@ -439,7 +434,7 @@ export function TvApp() {
           }}
         >
           <div
-            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-popover p-6 text-popover-foreground shadow-2xl"
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-popover p-5 sm:p-6 text-popover-foreground shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-5 flex items-center justify-between">
@@ -496,7 +491,9 @@ export function TvApp() {
                 </button>
               )}
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">
+            {catalogMsg && !window.nofufa && <p className="mt-2 text-sm text-primary">{catalogMsg}</p>}
+            {!window.nofufa && <ApiKeyField onSaved={() => loadCatalog(true)} />}
+            <p className={`mt-2 text-xs text-muted-foreground ${window.nofufa ? "" : "hidden"}`}>
               Organiza por carpetas: cada subcarpeta es una serie o película. Usa carpetas llamadas
               "Películas", "Series" o "Anime" para clasificarlas. Opcional: poster.jpg y fanart.jpg
               dentro de cada carpeta.
@@ -565,6 +562,39 @@ export function TvApp() {
   );
 }
 
+function ApiKeyField({ onSaved }: { onSaved: () => void }) {
+  const [k, setK] = useState(() => getApiKey());
+  return (
+    <div className="mt-4">
+      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground" htmlFor="lulukey">
+        Clave API de LuluStream
+      </label>
+      <div className="mt-1 flex gap-2">
+        <input
+          id="lulukey"
+          type="password"
+          value={k}
+          onChange={(e) => setK(e.target.value)}
+          placeholder="Pega tu clave para ver los vídeos nuevos al momento"
+          className="min-w-0 flex-1 rounded bg-secondary px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+        />
+        <button
+          onClick={() => {
+            setApiKey(k);
+            onSaved();
+          }}
+          className="rounded-md bg-secondary px-3 text-sm font-semibold hover:bg-accent"
+        >
+          Guardar
+        </button>
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Se guarda solo en este navegador. Sin clave, los vídeos nuevos aparecen cuando GitHub actualiza el catálogo (cada 15 min).
+      </p>
+    </div>
+  );
+}
+
 function Toggle({ label, on, set }: { label: string; on: boolean; set: (v: boolean) => void }) {
   return (
     <button onClick={() => set(!on)} className="flex w-full items-center justify-between">
@@ -596,7 +626,7 @@ function FilterBar({
   const sel = "rounded-md bg-secondary px-3 py-1.5 text-sm font-semibold";
   const active = f.genre || f.year || f.res;
   return (
-    <div className="mb-6 flex flex-wrap items-center gap-2">
+    <div className="mb-6 flex flex-wrap items-center gap-2 [&>select]:max-w-full">
       <select aria-label="Género" value={f.genre} onChange={(e) => set({ ...f, genre: e.target.value })} className={sel}>
         <option value="">Todos los géneros</option>
         {genres.map((g) => (

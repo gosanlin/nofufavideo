@@ -109,15 +109,15 @@ export function TitlePage({ t, onPlay, hasOverride = false, onFixMeta }: Props) 
           />
           <div className="bg-hero-fade absolute inset-0" />
         </div>
-        <div className="relative flex min-h-[60vh] flex-col justify-end gap-4 px-4 pb-8 pt-24 sm:min-h-[70vh] sm:gap-5 sm:px-8 sm:pb-10 sm:pt-28 lg:px-12">
+        <div className="relative flex min-h-[70vh] flex-col justify-end gap-4 px-4 pb-8 pt-24 sm:gap-5 sm:px-8 sm:pb-10 sm:pt-28 lg:px-12">
           {m?.logo ? (
             <img
               src={m.logo}
               alt={m.title}
-              className="max-h-32 max-w-md object-contain object-left"
+              className="max-h-20 max-w-[75vw] object-contain object-left sm:max-h-32 sm:max-w-md"
             />
           ) : (
-            <h1 className="max-w-3xl text-3xl sm:text-5xl font-extrabold leading-none tracking-tight">
+            <h1 className="max-w-3xl text-3xl font-extrabold sm:text-5xl leading-none tracking-tight">
               {m?.title ?? t.name}
             </h1>
           )}
@@ -136,7 +136,7 @@ export function TitlePage({ t, onPlay, hasOverride = false, onFixMeta }: Props) 
             {m?.runtime && <span>{m.runtime}</span>}
           </div>
           {m?.description && (
-            <p className="line-clamp-4 max-w-2xl text-lg leading-relaxed">{m.description}</p>
+            <p className="line-clamp-4 max-w-2xl text-sm leading-relaxed sm:text-lg">{m.description}</p>
           )}
           {!!m?.genres.length && <p className="text-sm font-semibold">{m.genres.join(" · ")}</p>}
           {!!m?.cast?.length && (
@@ -148,7 +148,7 @@ export function TitlePage({ t, onPlay, hasOverride = false, onFixMeta }: Props) 
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <button
               onClick={() => onPlay(resumeEp, prog?.t)}
-              className="flex h-14 items-center gap-3 rounded-lg bg-foreground px-7 text-lg font-bold text-background transition hover:bg-foreground/85"
+              className="btn-play w-full justify-center sm:w-auto"
             >
               <Play className="size-6 fill-current" />
               {started ? "Reanudar" : "Reproducir"}
@@ -217,7 +217,7 @@ export function TitlePage({ t, onPlay, hasOverride = false, onFixMeta }: Props) 
             )}
           </div>
           {prog && isMovie && (
-            <div className="w-80">
+            <div className="w-full max-w-80">
               <Progress value={prog.t / prog.d} className="rounded" />
               <p className="mt-1 text-xs text-muted-foreground">Quedan {fmt(prog.d - prog.t)}</p>
             </div>
@@ -225,7 +225,7 @@ export function TitlePage({ t, onPlay, hasOverride = false, onFixMeta }: Props) 
         </div>
       </div>
 
-      <div className="px-4 pb-24 sm:px-8 lg:px-12">
+      <div className="px-4 pb-24 sm:px-8 md:pb-16 lg:px-12">
         {!isMovie && seasons.length > 1 && (
           <div className="relative mb-4 inline-block">
             <button

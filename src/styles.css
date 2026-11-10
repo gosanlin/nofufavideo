@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-sans: "Figtree", system-ui, sans-serif;
+  --font-sans: "Figtree", "Amazon Ember", system-ui, sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -35,30 +35,31 @@
   --color-overlay-foreground: var(--overlay-foreground);
 }
 
-/* Estilo Prime Video: azul noche + azul Prime */
+/* Paleta derivada del logo: rojo #DC1E2D + blanco, sobre negro TV */
 :root {
+  /* Paleta estilo Prime Video: azul noche + azul Prime */
   --radius: 0.5rem;
-  --background: oklch(0.17 0.02 240);
+  --background: oklch(0.19 0.022 240);
   --foreground: oklch(0.98 0 0);
-  --card: oklch(0.24 0.025 240);
+  --card: oklch(0.25 0.024 240);
   --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.22 0.025 240);
+  --popover: oklch(0.23 0.024 240);
   --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.66 0.17 245);
+  --primary: oklch(0.66 0.17 248);
   --primary-foreground: oklch(0.99 0 0);
-  --primary-glow: oklch(0.74 0.15 240);
-  --secondary: oklch(0.3 0.025 240);
+  --primary-glow: oklch(0.76 0.14 240);
+  --secondary: oklch(0.3 0.024 240);
   --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.26 0.02 240);
+  --muted: oklch(0.27 0.02 240);
   --muted-foreground: oklch(0.74 0.02 240);
   --accent: oklch(0.36 0.03 240);
   --accent-foreground: oklch(0.98 0 0);
   --destructive: oklch(0.6 0.22 25);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(1 0 0 / 9%);
+  --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.66 0.17 245);
-  --rail: oklch(0.13 0.02 240);
+  --ring: oklch(0.66 0.17 248);
+  --rail: oklch(0.16 0.02 240);
   --scrim: oklch(0 0 0);
   --overlay-foreground: oklch(1 0 0);
   --gradient-hero: linear-gradient(90deg, var(--background) 22%, color-mix(in oklab, var(--background) 60%, transparent) 50%, transparent 75%),
@@ -77,7 +78,6 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     overflow: hidden;
-    -webkit-tap-highlight-color: transparent;
   }
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 8px; }
@@ -122,3 +122,37 @@
   z-index: 5;
 }
 .tv-mode :is(button, a):focus { transform: scale(1.04); transition: transform 0.12s ease; }
+
+/* Componentes estilo Prime Video */
+@utility nav-link {
+  border-radius: 0.375rem; padding: 0.375rem 0.75rem; font-size: 0.95rem; font-weight: 600;
+  color: var(--muted-foreground); transition: color .15s, background .15s;
+  &:hover { color: var(--foreground); background: color-mix(in oklab, var(--foreground) 10%, transparent); }
+}
+@utility nav-link-active { color: var(--foreground); box-shadow: inset 0 -2px 0 var(--foreground); border-radius: 0; }
+@utility tab-link {
+  display: flex; flex: 1; flex-direction: column; align-items: center; gap: 0.15rem;
+  padding: 0.5rem 0 0.45rem; font-size: 0.68rem; font-weight: 600; color: var(--muted-foreground);
+}
+@utility tab-link-active { color: var(--primary-glow); }
+@utility btn-play {
+  display: inline-flex; height: 3rem; align-items: center; gap: 0.5rem; border-radius: 0.5rem;
+  padding: 0 1.5rem; font-weight: 700; background: var(--primary); color: var(--primary-foreground);
+  transition: filter .15s, transform .15s;
+  &:hover { filter: brightness(1.12); }
+}
+@utility btn-ghost {
+  display: inline-flex; height: 3rem; align-items: center; gap: 0.5rem; border-radius: 0.5rem;
+  padding: 0 1.25rem; font-weight: 700; backdrop-filter: blur(8px);
+  background: color-mix(in oklab, var(--secondary) 80%, transparent);
+  &:hover { background: var(--accent); }
+}
+@utility btn-round {
+  display: grid; width: 3rem; height: 3rem; place-items: center; border-radius: 9999px;
+  background: color-mix(in oklab, var(--secondary) 80%, transparent); backdrop-filter: blur(8px);
+  &:hover { background: var(--accent); }
+}
+@utility card-frame {
+  box-shadow: 0 0 0 0 transparent; transition: transform .2s, box-shadow .2s;
+  &:hover { box-shadow: 0 0 0 2px var(--foreground), 0 18px 40px -12px var(--scrim); }
+}
