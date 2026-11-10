@@ -19,12 +19,12 @@ import { fetchMeta, clearMetaCache } from "./metadata";
 import { actions, useStore } from "./store";
 import { Home, Browse } from "./Home";
 import { TitlePage } from "./TitlePage";
-import { Guide } from "./Guide";
 import { Player } from "./Player";
 import logo from "./logo.png";
 import { lengthOf, loadLulu } from "./lulu";
+import { Home as HomeIcon, Film, Tv, Sparkles, Bookmark } from "lucide-react";
 
-type Page = "home" | "movie" | "series" | "anime" | "video" | "list" | "live" | "search" | "title";
+type Page = "home" | "movie" | "series" | "anime" | "video" | "list" | "search" | "title";
 interface View {
   page: Page;
   id?: string;
@@ -304,24 +304,24 @@ export function TvApp() {
   return (
     <div className="h-screen bg-background text-foreground">
       <header
-        className={`fixed inset-x-0 top-0 z-40 flex h-16 items-center gap-8 px-12 transition-colors ${scrolled || view.page === "live" ? "bg-nav" : "bg-nav-fade"}`}
+        className={`fixed inset-x-0 top-0 z-40 flex h-14 items-center gap-3 px-4 transition-colors sm:h-16 sm:gap-6 sm:px-8 lg:gap-8 lg:px-12 ${scrolled ? "bg-nav" : "bg-nav-fade"}`}
       >
         {history.length > 0 && view.page === "title" && (
           <button
             onClick={back}
             aria-label="Atrás"
-            className="-ml-6 text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground lg:-ml-6 hover:text-foreground"
           >
             <ArrowLeft className="size-5" />
           </button>
         )}
         <button onClick={() => go({ page: "home" })} className="flex items-center gap-2.5">
           <img src={logo} alt="" className="size-8 rounded-full" />
-          <span className="text-lg font-extrabold tracking-tight">
+          <span className="hidden text-lg font-extrabold tracking-tight sm:inline">
             Nofufa<span className="text-primary"> Video</span>
           </span>
         </button>
-        <nav className="flex items-center gap-1">
+        <nav className="hidden items-center gap-1 md:flex">
           {NAV.map(([p, l]) => (
             <button
               key={p}
@@ -331,15 +331,8 @@ export function TvApp() {
               {l}
             </button>
           ))}
-          <span className="mx-2 h-5 w-px bg-border" />
-          <button
-            onClick={() => go({ page: "live" })}
-            className={`rounded-md px-3 py-1.5 text-[0.95rem] font-semibold transition hover:bg-foreground/10 ${view.page === "live" ? "text-foreground" : "text-muted-foreground"}`}
-          >
-            TV en directo
-          </button>
         </nav>
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
           <label className="flex h-9 items-center gap-2 rounded-md bg-foreground/10 px-3 focus-within:ring-2 focus-within:ring-primary">
             <Search className="size-4 text-muted-foreground" />
             <input
@@ -349,7 +342,7 @@ export function TvApp() {
                 if (view.page !== "search") go({ page: "search" });
               }}
               placeholder="Buscar"
-              className="w-44 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              className="w-24 min-w-0 bg-transparent sm:w-44 text-sm outline-none placeholder:text-muted-foreground"
             />
             {q && (
               <button onClick={() => setQ("")} aria-label="Borrar búsqueda">
@@ -377,10 +370,6 @@ export function TvApp() {
             titles={shown}
             onOpen={open}
             onPlay={(_t, ep, at) => startEp(ep, at)}
-            onBroadcastAll={() => {
-              broadcastScope.current = null;
-              broadcast(allEps);
-            }}
           />
         )}
         {view.page === "title" && titleView && (
@@ -390,10 +379,6 @@ export function TvApp() {
             onPlay={startEp}
             hasOverride={!!ov[titleView.id]}
             onFixMeta={(m) => fixMeta(titleView.id, m)}
-            onBroadcast={() => {
-              broadcastScope.current = titleView.id;
-              broadcast(titleView.episodes);
-            }}
           />
         )}
         {view.page === "title" && !titleView && (
@@ -403,17 +388,6 @@ export function TvApp() {
             onOpen={open}
             empty="Este título ya no está en tu biblioteca."
           />
-        )}
-        {view.page === "live" && (
-          <div className="h-full">
-            <Guide
-              titles={shown}
-              onTune={(t) => {
-                broadcastScope.current = t.id;
-                broadcast(t.episodes);
-              }}
-            />
-          </div>
         )}
         {["movie", "series", "anime", "list", "search"].includes(view.page) && (
           <Browse
@@ -440,9 +414,25 @@ export function TvApp() {
       </div>
 
 
+      <nav className="bg-nav fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t pb-[env(safe-area-inset-bottom)] md:hidden">
+        {NAV.map(([p, l]) => {
+          const Icon = { home: HomeIcon, movie: Film, series: Tv, anime: Sparkles, list: Bookmark }[p as "home"] ?? HomeIcon;
+          return (
+            <button
+              key={p}
+              onClick={() => go({ page: p })}
+              className={`flex flex-col items-center gap-0.5 py-2 text-[0.7rem] font-semibold ${view.page === p ? "text-primary" : "text-muted-foreground"}`}
+            >
+              <Icon className="size-5" />
+              {l}
+            </button>
+          );
+        })}
+      </nav>
+
       {settingsOpen && (
         <div
-          className="tv-modal fixed inset-0 z-50 grid place-items-center bg-scrim/70 p-6"
+          className="tv-modal fixed inset-0 z-50 grid place-items-center bg-scrim/70 p-3 sm:p-6"
           onClick={() => setSettingsOpen(false)}
           onKeyDown={(e) => {
             if (e.key === "Escape") setSettingsOpen(false);
@@ -535,11 +525,6 @@ export function TvApp() {
                 label="Modo nocturno (voces claras)"
                 on={s.settings.nightMode}
                 set={(v) => actions.setSettings({ nightMode: v })}
-              />
-              <Toggle
-                label="Logo de canal en emisiones"
-                on={s.settings.showWatermark}
-                set={(v) => actions.setSettings({ showWatermark: v })}
               />
             </div>
             {window.nofufa?.getKeys && <Accounts />}

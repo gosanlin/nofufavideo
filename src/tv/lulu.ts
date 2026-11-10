@@ -1,5 +1,6 @@
 import { buildTitle, cleanName, hash } from "./library";
 import type { Title } from "./types";
+import { getLuluFiles } from "./lulu.functions";
 
 /** Configuración de LuluStream / Luluvido (heredada de LuluFlix). */
 export const LULU = {
@@ -18,7 +19,7 @@ export interface LuluVideo {
   folder?: string;
 }
 
-/** Duración (segundos) de cada vídeo según la API, para empezar en un punto aleatorio en TV en directo. */
+/** Duración (segundos) de cada vídeo según la API. */
 const LENGTHS = new Map<string, number>();
 export const lengthOf = (url: string) => LENGTHS.get(url) ?? 0;
 
@@ -123,14 +124,14 @@ async function fromJson(): Promise<LuluVideo[]> {
   return (Array.isArray(j) ? j : j.files ?? []).map(normalize);
 }
 
-/** Carga el catálogo: videos.json (generado por GitHub Actions) y, si está vacío, la API en directo. */
-export async function loadLulu(fresh = false): Promise<Title[]> {
+/** Carga el catálogo: primero la lista en directo desde el servidor (vídeos nuevos al momento), después videos.json. */
+export async function loadLulu(_fresh = false): Promise<Title[]> {
   let list: LuluVideo[] = [];
-  // "Recargar catálogo": primero la API en directo (vídeos nuevos al momento), después videos.json
-  if (fresh) { try { list = await fromApi(); } catch { /* sin api */ } }
+  try {
+    const r = await getLuluFiles();
+    if (r.ok) list = r.files.map(normalize);
+  } catch { /* servidor no disponible */ }
+  if (!list.length) { try { list = await fromApi(); } catch { /* sin api */ } }
   if (!list.length) { try { list = await fromJson(); } catch { /* sin json */ } }
-  if (!list.length && !fresh) {
-    try { list = await fromApi(); } catch { /* sin api */ }
-  }
   return titlesFromLulu(list);
 }

@@ -8,7 +8,6 @@ import {
   PencilLine,
   Play,
   Plus,
-  Radio,
   RotateCcw,
   Shuffle,
   ThumbsDown,
@@ -25,7 +24,6 @@ import { fmt } from "./Player";
 interface Props {
   t: Title;
   onPlay: (ep: Episode, at?: number) => void;
-  onBroadcast: () => void;
   hasOverride?: boolean;
   onFixMeta?: (m: Meta | null) => void;
 }
@@ -53,7 +51,7 @@ function IconBtn({
   );
 }
 
-export function TitlePage({ t, onPlay, onBroadcast, hasOverride = false, onFixMeta }: Props) {
+export function TitlePage({ t, onPlay, hasOverride = false, onFixMeta }: Props) {
   const [fixing, setFixing] = useState(false);
   const s = useStore();
   const seasons = useMemo(() => seasonsOf(t), [t]);
@@ -111,7 +109,7 @@ export function TitlePage({ t, onPlay, onBroadcast, hasOverride = false, onFixMe
           />
           <div className="bg-hero-fade absolute inset-0" />
         </div>
-        <div className="relative flex min-h-[70vh] flex-col justify-end gap-5 px-12 pb-10 pt-28">
+        <div className="relative flex min-h-[60vh] flex-col justify-end gap-4 px-4 pb-8 pt-24 sm:min-h-[70vh] sm:gap-5 sm:px-8 sm:pb-10 sm:pt-28 lg:px-12">
           {m?.logo ? (
             <img
               src={m.logo}
@@ -119,7 +117,7 @@ export function TitlePage({ t, onPlay, onBroadcast, hasOverride = false, onFixMe
               className="max-h-32 max-w-md object-contain object-left"
             />
           ) : (
-            <h1 className="max-w-3xl text-5xl font-extrabold leading-none tracking-tight">
+            <h1 className="max-w-3xl text-3xl sm:text-5xl font-extrabold leading-none tracking-tight">
               {m?.title ?? t.name}
             </h1>
           )}
@@ -164,14 +162,6 @@ export function TitlePage({ t, onPlay, onBroadcast, hasOverride = false, onFixMe
               <IconBtn label="Empezar desde el principio" onClick={() => onPlay(resumeEp, 0)}>
                 <RotateCcw className="size-5" />
               </IconBtn>
-            )}
-            {!isMovie && (
-              <button
-                onClick={onBroadcast}
-                className="flex h-14 items-center gap-2 rounded-lg bg-secondary/80 px-5 font-bold backdrop-blur transition hover:bg-accent"
-              >
-                <Radio className="size-5 text-primary-glow" /> Emisión aleatoria
-              </button>
             )}
             <IconBtn
               label={inList ? "Quitar de Mi lista" : "Añadir a Mi lista"}
@@ -235,7 +225,7 @@ export function TitlePage({ t, onPlay, onBroadcast, hasOverride = false, onFixMe
         </div>
       </div>
 
-      <div className="px-12">
+      <div className="px-4 pb-24 sm:px-8 lg:px-12">
         {!isMovie && seasons.length > 1 && (
           <div className="relative mb-4 inline-block">
             <button

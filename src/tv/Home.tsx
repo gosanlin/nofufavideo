@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Info, Play, Plus, Check, Radio } from "lucide-react";
+import { Info, Play, Plus, Check } from "lucide-react";
 import type { Episode, Kind, Title } from "./types";
 import { actions, useStore } from "./store";
 import { Art, Card, KIND_LABEL, PosterCard, Row, backdrop } from "./ui";
@@ -8,10 +8,9 @@ interface Props {
   titles: Title[];
   onOpen: (t: Title) => void;
   onPlay: (t: Title, ep: Episode, at?: number) => void;
-  onBroadcastAll: () => void;
 }
 
-export function Home({ titles, onOpen, onPlay, onBroadcastAll }: Props) {
+export function Home({ titles, onOpen, onPlay }: Props) {
   const s = useStore();
   const byId = useMemo(() => new Map(titles.map((t) => [t.id, t])), [titles]);
 
@@ -55,7 +54,7 @@ export function Home({ titles, onOpen, onPlay, onBroadcastAll }: Props) {
   return (
     <div className="pb-16">
       {hero && (
-        <div className="relative h-[78vh] min-h-[30rem]">
+        <div className="relative h-[62vh] min-h-[26rem] sm:h-[80vh]">
           <div className="absolute inset-0 overflow-hidden">
             {featured.map((t, i) => (
               <div
@@ -67,7 +66,7 @@ export function Home({ titles, onOpen, onPlay, onBroadcastAll }: Props) {
             ))}
             <div className="bg-hero-fade absolute inset-0" />
           </div>
-          <div className="relative flex h-full max-w-2xl flex-col justify-end gap-4 px-12 pb-24">
+          <div className="relative flex h-full max-w-2xl flex-col justify-end gap-4 px-4 pb-20 sm:px-8 sm:pb-24 lg:px-12">
             <span className="w-fit rounded bg-foreground/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wider">
               {KIND_LABEL[hero.kind]}
             </span>
@@ -75,33 +74,33 @@ export function Home({ titles, onOpen, onPlay, onBroadcastAll }: Props) {
               <img
                 src={hero.meta.logo}
                 alt={hero.meta.title}
-                className="max-h-28 max-w-md object-contain object-left"
+                className="max-h-16 max-w-[70%] sm:max-h-28 sm:max-w-md object-contain object-left"
               />
             ) : (
-              <h1 className="text-5xl font-extrabold leading-none tracking-tight">
+              <h1 className="text-3xl font-extrabold sm:text-5xl lg:text-6xl leading-none tracking-tight">
                 {hero.meta?.title ?? hero.name}
               </h1>
             )}
             {hero.meta?.description && (
-              <p className="line-clamp-3 text-lg">{hero.meta.description}</p>
+              <p className="line-clamp-2 text-sm sm:line-clamp-3 sm:text-lg">{hero.meta.description}</p>
             )}
             <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={() => onPlay(hero, hero.episodes[0]!)}
-                className="flex h-12 items-center gap-2 rounded-lg bg-foreground px-6 font-bold text-background hover:bg-foreground/85"
+                className="flex h-11 items-center gap-2 rounded-md bg-primary px-5 font-bold text-primary-foreground hover:bg-primary-glow sm:h-12 sm:px-7"
               >
                 <Play className="size-5 fill-current" /> Reproducir
               </button>
               <button
                 onClick={() => onOpen(hero)}
-                className="flex h-12 items-center gap-2 rounded-lg bg-secondary/80 px-6 font-bold backdrop-blur hover:bg-accent"
+                className="flex h-11 items-center gap-2 rounded-md bg-secondary/80 px-4 sm:h-12 sm:px-6 font-bold backdrop-blur hover:bg-accent"
               >
                 <Info className="size-5" /> Más información
               </button>
               <button
                 onClick={() => actions.toggleWatchlist(hero.id)}
                 aria-label="Mi lista"
-                className="grid size-12 place-items-center rounded-full border-2 border-foreground/40 hover:border-foreground"
+                className="grid size-11 sm:size-12 place-items-center rounded-full border-2 border-foreground/40 hover:border-foreground"
               >
                 {s.watchlist.includes(hero.id) ? (
                   <Check className="size-5" />
@@ -111,7 +110,7 @@ export function Home({ titles, onOpen, onPlay, onBroadcastAll }: Props) {
               </button>
             </div>
           </div>
-          <div className="absolute bottom-10 right-12 flex gap-2">
+          <div className="absolute bottom-6 right-4 sm:bottom-10 sm:right-12 flex gap-2">
             {featured.map((t, i) => (
               <button
                 key={t.id}
@@ -124,23 +123,7 @@ export function Home({ titles, onOpen, onPlay, onBroadcastAll }: Props) {
         </div>
       )}
 
-      <div className="relative -mt-14 space-y-4">
-        <div className="px-12 pb-2">
-          <button
-            onClick={onBroadcastAll}
-            className="flex items-center gap-3 rounded-lg bg-card px-5 py-3 text-left shadow-lg ring-1 ring-border transition hover:bg-accent"
-          >
-            <span className="grid size-10 place-items-center rounded-full bg-primary text-primary-foreground">
-              <Radio className="size-5" />
-            </span>
-            <span>
-              <span className="block font-bold">Emisión aleatoria</span>
-              <span className="text-sm text-muted-foreground">
-                Episodios al azar de toda tu biblioteca, como en la tele
-              </span>
-            </span>
-          </button>
-        </div>
+      <div className="relative -mt-10 space-y-2 sm:-mt-14 sm:space-y-4">
 
         {cont.length > 0 && (
           <Row title="Seguir viendo">
@@ -216,13 +199,13 @@ export function Browse({
   toolbar?: React.ReactNode;
 }) {
   return (
-    <div className="px-12 pb-16 pt-28">
-      <h1 className="mb-6 text-3xl font-extrabold">{heading}</h1>
+    <div className="px-4 pb-24 pt-20 sm:px-8 sm:pt-28 lg:px-12">
+      <h1 className="mb-6 text-2xl font-extrabold sm:text-3xl">{heading}</h1>
       {toolbar}
       {titles.length === 0 ? (
         <p className="text-muted-foreground">{empty}</p>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-x-4 gap-y-6">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-x-3 sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] sm:gap-x-4 gap-y-6">
           {titles.map((t) => (
             <PosterCard key={t.id} t={t} onOpen={() => onOpen(t)} />
           ))}
