@@ -102,27 +102,18 @@ export function useStereoFix(
       for (let i = 0; i < buf.length; i++) s += buf[i]! * buf[i]!;
       return Math.sqrt(s / buf.length);
     };
-    let score = 0; // >0: solo izquierda, <0: solo derecha
-    let mode = 0;
+    // Estéreo forzado: L y R se mezclan y suenan siempre por los dos altavoces.
+    for (const from of [0, 1]) for (const to of [0, 1]) g[from]![to]!.gain.value = 0.5;
+    try {
+      c.destination.channelCount = 2;
+      c.destination.channelCountMode = "explicit";
+      c.destination.channelInterpretation = "speakers";
+    } catch {
+      /* */
+    }
+    void an; void rms;
     const iv = window.setInterval(() => {
       if (c.state === "suspended" && !v.paused) c.resume().catch(() => {});
-      if (v.paused) return;
-      const l = rms(an[0]!),
-        r = rms(an[1]!);
-      const hi = Math.max(l, r);
-      if (hi < 0.003) return; // silencio: no decidir
-      if (r < l * 0.05) score = Math.min(score + 1, 8);
-      else if (l < r * 0.05) score = Math.max(score - 1, -8);
-      else score += score > 0 ? -1 : score < 0 ? 1 : 0;
-      const want = score >= 4 ? 1 : score <= -4 ? -1 : score === 0 ? 0 : mode;
-      if (want === mode) return;
-      mode = want;
-      const set = (from: number, to: number, x: number) =>
-        g[from]![to]!.gain.setTargetAtTime(x, c.currentTime, 0.05);
-      set(0, 0, mode >= 0 ? 1 : 0);
-      set(0, 1, mode === 1 ? 1 : 0);
-      set(1, 1, mode <= 0 ? 1 : 0);
-      set(1, 0, mode === -1 ? 1 : 0);
     }, 250);
     return () => {
       window.clearInterval(iv);

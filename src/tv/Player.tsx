@@ -9,7 +9,6 @@ import {
   Pause,
   Play,
   Radio,
-  Shuffle,
   SkipForward,
   Volume2,
   VolumeX,
@@ -942,12 +941,6 @@ function VideoPlayer({
                     <Search className="size-4" /> Buscar subtítulos en internet
                   </button>
                 )}
-                <button
-                  onClick={onRandom}
-                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 hover:bg-accent"
-                >
-                  <Shuffle className="size-4" /> Episodio aleatorio (R)
-                </button>
               </div>
             </div>
           </div>

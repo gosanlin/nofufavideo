@@ -37,29 +37,28 @@
 
 /* Paleta derivada del logo: rojo #DC1E2D + blanco, sobre negro TV */
 :root {
-  /* Paleta estilo Prime Video: azul noche + azul Prime */
   --radius: 0.5rem;
-  --background: oklch(0.19 0.022 240);
+  --background: oklch(0.19 0.012 20);
   --foreground: oklch(0.98 0 0);
-  --card: oklch(0.25 0.024 240);
+  --card: oklch(0.25 0.012 20);
   --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.23 0.024 240);
+  --popover: oklch(0.23 0.012 20);
   --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.66 0.17 248);
+  --primary: oklch(0.57 0.21 23);
   --primary-foreground: oklch(0.99 0 0);
-  --primary-glow: oklch(0.76 0.14 240);
-  --secondary: oklch(0.3 0.024 240);
+  --primary-glow: oklch(0.68 0.19 23);
+  --secondary: oklch(0.3 0.012 20);
   --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.27 0.02 240);
-  --muted-foreground: oklch(0.74 0.02 240);
-  --accent: oklch(0.36 0.03 240);
+  --muted: oklch(0.27 0.012 20);
+  --muted-foreground: oklch(0.74 0.012 20);
+  --accent: oklch(0.36 0.012 20);
   --accent-foreground: oklch(0.98 0 0);
   --destructive: oklch(0.6 0.22 25);
   --destructive-foreground: oklch(0.98 0 0);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.66 0.17 248);
-  --rail: oklch(0.16 0.02 240);
+  --ring: oklch(0.57 0.21 23);
+  --rail: oklch(0.16 0.012 20);
   --scrim: oklch(0 0 0);
   --overlay-foreground: oklch(1 0 0);
   --gradient-hero: linear-gradient(90deg, var(--background) 22%, color-mix(in oklab, var(--background) 60%, transparent) 50%, transparent 75%),

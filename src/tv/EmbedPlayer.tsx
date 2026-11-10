@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { ArrowLeft, Shuffle, SkipForward } from "lucide-react";
+import { ArrowLeft, SkipForward } from "lucide-react";
 import type { Episode, Title } from "./types";
 import { episodeTitle } from "./library";
 import { embedSrc } from "./lulu";
@@ -41,9 +41,6 @@ export function EmbedPlayer({ title, episode, next, startAt = 0, broadcast = fal
             </p>
           )}
         </div>
-        <button onClick={onRandom} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-overlay-foreground/10">
-          <Shuffle className="size-4" /> Aleatorio
-        </button>
         {next && (
           <button onClick={onNext} className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-overlay-foreground/10">
             <SkipForward className="size-4" /> Siguiente
