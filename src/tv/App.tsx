@@ -22,7 +22,7 @@ import { TitlePage } from "./TitlePage";
 import { Guide } from "./Guide";
 import { Player } from "./Player";
 import logo from "./logo.png";
-import { loadLulu } from "./lulu";
+import { lengthOf, loadLulu } from "./lulu";
 
 type Page = "home" | "movie" | "series" | "anime" | "video" | "list" | "live" | "search" | "title";
 interface View {
@@ -137,10 +137,11 @@ export function TvApp() {
   }, []);
 
   /** Catálogo online de Luluvido (GitHub Pages). Si está vacío se muestra contenido de muestra. */
-  const loadCatalog = async () => {
+  const loadCatalog = async (fresh = false) => {
     setLoading(true);
     try {
-      const list = await loadLulu();
+      if (fresh) clearMetaCache();
+      const list = await loadLulu(fresh);
       load(list.length ? list : demoTitles());
     } catch {
       load(demoTitles());
@@ -157,7 +158,7 @@ export function TvApp() {
         rescan(rs);
         go({ page: "home" });
       }
-    } else loadCatalog();
+    } else loadCatalog(true);
   };
   const removeRoot = async (r: string) => {
     const b = window.nofufa;
@@ -205,10 +206,17 @@ export function TvApp() {
   };
   const startPlay = (ep: Episode, at: number) =>
     setPlay({ epId: ep.id, titleId: ep.titleId, at, queue: null });
+  /** Punto aleatorio de la emisión (minuto y segundo) dentro del episodio. */
+  const randomAt = (id: string) => {
+    const len = lengthOf(epById.get(id)?.url ?? "");
+    return len > 120 ? Math.floor(len * (0.05 + Math.random() * 0.8)) : Math.floor(Math.random() * 600);
+  };
+  const broadcastPool = useRef<string[] | null>(null);
   const broadcast = (pool: Episode[]) => {
     if (!pool.length) return;
+    broadcastPool.current = pool.map((e) => e.id);
     const qu = shuffleQueue(pool.map((e) => e.id));
-    setPlay({ epId: qu[0]!, titleId: epById.get(qu[0]!)!.titleId, at: 0, queue: qu.slice(1) });
+    setPlay({ epId: qu[0]!, titleId: epById.get(qu[0]!)!.titleId, at: randomAt(qu[0]!), queue: qu.slice(1) });
   };
 
   const cur = play ? epById.get(play.epId) : undefined;
@@ -228,7 +236,7 @@ export function TvApp() {
         if (!qu.length) qu = shuffleQueue(poolFor(), Math.random, p.epId);
         const id = qu[0];
         if (!id) return null;
-        return { epId: id, titleId: epById.get(id)!.titleId, at: 0, queue: qu.slice(1) };
+        return { epId: id, titleId: epById.get(id)!.titleId, at: randomAt(id), queue: qu.slice(1) };
       }
       return nextEp
         ? {
@@ -242,16 +250,20 @@ export function TvApp() {
   // pool de una emisión: si empezó en un título, ese título; si no, toda la biblioteca
   const broadcastScope = useRef<string | null>(null);
   const poolFor = () =>
+    broadcastPool.current ??
     (broadcastScope.current ? (byId.get(broadcastScope.current)?.episodes ?? []) : allEps).map(
       (e) => e.id,
     );
   const randomNow = () => {
     if (!cur) return;
-    const pool =
-      play?.queue && broadcastScope.current === null ? allEps : (curTitle?.episodes ?? allEps);
+    const pool = play?.queue
+      ? broadcastPool.current
+        ? (broadcastPool.current.map((id) => epById.get(id)).filter(Boolean) as Episode[])
+        : allEps
+      : (curTitle?.episodes ?? allEps);
     const others = pool.filter((e) => e.id !== cur.id);
     const e = others[Math.floor(Math.random() * others.length)];
-    if (e) setPlay((p) => p && { ...p, epId: e.id, titleId: e.titleId, at: 0 });
+    if (e) setPlay((p) => p && { ...p, epId: e.id, titleId: e.titleId, at: p.queue ? randomAt(e.id) : 0 });
   };
 
   const filtered = (k: Page) => {
@@ -446,13 +458,13 @@ export function TvApp() {
                 <X className="size-5" />
               </button>
             </div>
-            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Biblioteca
-            </p>
-            {roots.length === 0 && (
-              <p className="mt-1 truncate text-sm">
-                {window.nofufa ? "Sin carpeta elegida" : "Catálogo online de Luluvido"}
+            {window.nofufa && (
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Biblioteca
               </p>
+            )}
+            {window.nofufa && roots.length === 0 && (
+              <p className="mt-1 truncate text-sm">Sin carpeta elegida</p>
             )}
             <ul className="mt-1 space-y-1">
               {roots.map((r) => (
@@ -477,7 +489,12 @@ export function TvApp() {
                 onClick={pickFolder}
                 className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
               >
-                <FolderPlus className="size-4" /> {window.nofufa ? "Añadir carpeta" : "Recargar catálogo"}
+                {window.nofufa ? (
+                  <FolderPlus className="size-4" />
+                ) : (
+                  <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
+                )}{" "}
+                {window.nofufa ? "Añadir carpeta" : loading ? "Sincronizando…" : "Recargar catálogo"}
               </button>
               {root && (
                 <button
@@ -488,15 +505,6 @@ export function TvApp() {
                   escanear
                 </button>
               )}
-              <button
-                onClick={() => {
-                  clearMetaCache();
-                  enrich(titles);
-                }}
-                className="rounded-md bg-secondary px-4 py-2 text-sm font-semibold"
-              >
-                Actualizar carátulas
-              </button>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
               Organiza por carpetas: cada subcarpeta es una serie o película. Usa carpetas llamadas
@@ -533,30 +541,6 @@ export function TvApp() {
                 on={s.settings.showWatermark}
                 set={(v) => actions.setSettings({ showWatermark: v })}
               />
-              <label className="flex items-center justify-between">
-                Idioma de audio preferido
-                <select
-                  value={s.settings.audioLang}
-                  onChange={(e) => actions.setSettings({ audioLang: e.target.value })}
-                  className="rounded bg-secondary px-2 py-1"
-                >
-                  <option value="spa">Español</option>
-                  <option value="jpn">Japonés</option>
-                  <option value="eng">Inglés</option>
-                </select>
-              </label>
-              <label className="flex items-center justify-between">
-                Subtítulos por defecto
-                <select
-                  value={s.settings.subLang}
-                  onChange={(e) => actions.setSettings({ subLang: e.target.value })}
-                  className="rounded bg-secondary px-2 py-1"
-                >
-                  <option value="">Desactivados</option>
-                  <option value="spa">Español</option>
-                  <option value="eng">Inglés</option>
-                </select>
-              </label>
             </div>
             {window.nofufa?.getKeys && <Accounts />}
             <div className="mt-6 border-t pt-4">

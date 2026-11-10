@@ -11,10 +11,10 @@ export const KIND_LABEL = {
 } as const;
 
 export function poster(t: Title) {
-  return t.images?.poster ?? t.images?.folder ?? t.images?.cover ?? t.meta?.poster;
+  return t.meta?.poster ?? t.images?.poster ?? t.images?.folder ?? t.images?.cover;
 }
 export function backdrop(t: Title) {
-  return t.images?.fanart ?? t.images?.background ?? t.meta?.background ?? poster(t);
+  return t.meta?.background ?? t.images?.fanart ?? t.images?.background ?? poster(t);
 }
 
 /* ---------- miniaturas de episodio (cola con 2 a la vez) ---------- */

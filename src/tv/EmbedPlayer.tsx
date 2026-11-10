@@ -2,11 +2,14 @@ import { useEffect } from "react";
 import { ArrowLeft, Shuffle, SkipForward } from "lucide-react";
 import type { Episode, Title } from "./types";
 import { episodeTitle } from "./library";
+import { embedSrc } from "./lulu";
 
 interface Props {
   title: Title;
   episode: Episode;
   next?: Episode | undefined;
+  startAt?: number;
+  broadcast?: boolean;
   onClose: () => void;
   onNext: () => void;
   onRandom: () => void;
@@ -14,7 +17,7 @@ interface Props {
 }
 
 /** Reproductor para streams de Luluvido (iframe embed). */
-export function EmbedPlayer({ title, episode, next, onClose, onNext, onRandom, hidden }: Props) {
+export function EmbedPlayer({ title, episode, next, startAt = 0, broadcast = false, onClose, onNext, onRandom, hidden }: Props) {
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       if (e.key === "Escape" || e.key === "Backspace") onClose();
@@ -49,7 +52,7 @@ export function EmbedPlayer({ title, episode, next, onClose, onNext, onRandom, h
       </div>
       <iframe
         key={episode.url}
-        src={episode.url}
+        src={embedSrc(episode.url, startAt, broadcast)}
         title={episodeTitle(title, episode)}
         className="w-full flex-1 border-0"
         allow="autoplay; fullscreen; encrypted-media; picture-in-picture"

@@ -18,6 +18,24 @@ function schedule(t: Title, start: Date) {
   }));
 }
 
+const DB_MOVIE = /dragon\s*ball\s*(z|super)/i;
+/** Las películas de Dragon Ball Z y Super se emiten juntas en un único canal. */
+export function liveChannels(titles: Title[]): Title[] {
+  const db = titles.filter((t) => t.kind === "movie" && DB_MOVIE.test(`${t.name} ${t.meta?.title ?? ""}`));
+  if (db.length < 2) return titles;
+  const first = titles.indexOf(db[0]!);
+  const channel: Title = {
+    ...db[0]!,
+    id: "live-dragon-ball-movies",
+    name: "Películas Dragon Ball Z y Super",
+    meta: undefined,
+    episodes: db.flatMap((t) => t.episodes),
+  };
+  const rest = titles.filter((t) => !db.includes(t));
+  rest.splice(first, 0, channel);
+  return rest;
+}
+
 /** "TV en directo": cada título es un canal que emite episodios al azar. */
 export function Guide({ titles, onTune }: { titles: Title[]; onTune: (t: Title) => void }) {
   const cats = [
@@ -37,7 +55,10 @@ export function Guide({ titles, onTune }: { titles: Title[]; onTune: (t: Title) 
   const start = new Date(now);
   start.setMinutes(now.getMinutes() < 30 ? 0 : 30, 0, 0);
   const offset = (now.getTime() - start.getTime()) / 60000;
-  const list = useMemo(() => titles.filter((t) => cat === "all" || t.kind === cat), [titles, cat]);
+  const list = useMemo(
+    () => liveChannels(titles).filter((t) => cat === "all" || t.kind === cat),
+    [titles, cat],
+  );
   const times = Array.from({ length: 6 }, (_, i) => new Date(start.getTime() + i * SLOT * 60000));
   const hm = (d: Date) => d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
 

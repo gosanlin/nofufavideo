@@ -18,6 +18,19 @@ export interface LuluVideo {
   folder?: string;
 }
 
+/** Duración (segundos) de cada vídeo según la API, para empezar en un punto aleatorio en TV en directo. */
+const LENGTHS = new Map<string, number>();
+export const lengthOf = (url: string) => LENGTHS.get(url) ?? 0;
+
+/** URL del embed con reproducción automática y, opcionalmente, segundo de inicio. */
+export function embedSrc(url: string, at = 0, autoplay = false): string {
+  if (!autoplay && !at) return url;
+  const p = new URLSearchParams();
+  if (autoplay) p.set("autoplay", "1");
+  if (at > 0) { const s = String(Math.floor(at)); p.set("t", s); p.set("start", s); }
+  return `${url}${url.includes("?") ? "&" : "?"}${p}#t=${Math.floor(at)}`;
+}
+
 export const embedUrl = (code: string) => LULU.EMBED_BASE + encodeURIComponent(code);
 export const isEmbed = (url: string) => url.startsWith(LULU.EMBED_BASE) || /\/e\/[a-z0-9]+$/i.test(url);
 
@@ -48,6 +61,8 @@ export function seriesKey(v: LuluVideo): string | null {
 export function titlesFromLulu(list: LuluVideo[]): Title[] {
   const groups = new Map<string, LuluVideo[]>();
   for (const v of list.filter((x) => x.code)) {
+    const len = parseFloat(v.length ?? "");
+    if (len > 0) LENGTHS.set(embedUrl(v.code), len);
     const k = seriesKey(v) ?? `__${v.code}`;
     groups.set(k, [...(groups.get(k) ?? []), v]);
   }
@@ -102,17 +117,19 @@ async function fromApi(): Promise<LuluVideo[]> {
 }
 
 async function fromJson(): Promise<LuluVideo[]> {
-  const r = await fetch(LULU.JSON, { cache: "no-store" });
+  const r = await fetch(`${LULU.JSON}?v=${Date.now()}`, { cache: "no-store" });
   if (!r.ok) throw new Error("No se encontró videos.json");
   const j = await r.json();
   return (Array.isArray(j) ? j : j.files ?? []).map(normalize);
 }
 
 /** Carga el catálogo: videos.json (generado por GitHub Actions) y, si está vacío, la API en directo. */
-export async function loadLulu(): Promise<Title[]> {
+export async function loadLulu(fresh = false): Promise<Title[]> {
   let list: LuluVideo[] = [];
-  try { list = await fromJson(); } catch { /* sin json */ }
-  if (!list.length) {
+  // "Recargar catálogo": primero la API en directo (vídeos nuevos al momento), después videos.json
+  if (fresh) { try { list = await fromApi(); } catch { /* sin api */ } }
+  if (!list.length) { try { list = await fromJson(); } catch { /* sin json */ } }
+  if (!list.length && !fresh) {
     try { list = await fromApi(); } catch { /* sin api */ }
   }
   return titlesFromLulu(list);
