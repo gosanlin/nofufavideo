@@ -32,3 +32,11 @@ describe("pasarelas", () => {
     expect(urls.every((u) => !u.startsWith("https://api.lulustream.com"))).toBe(true);
   });
 });
+
+import { parseLength } from "./lulu";
+import { test as t2, expect as e2 } from "vitest";
+t2("duración de LuluStream en segundos o hh:mm:ss", () => {
+  e2(parseLength("1500")).toBe(1500);
+  e2(parseLength("01:02:03")).toBe(3723);
+  e2(parseLength("")).toBeUndefined();
+});

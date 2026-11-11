@@ -83,6 +83,7 @@ export function buildTitle(s: {
     path?: string;
     mtime?: number;
     subtitles?: SubSource[];
+    duration?: number | undefined;
   }[];
   images?: Record<string, string> | undefined;
   info?: ScannedTitle["info"] | undefined;
@@ -106,6 +107,7 @@ export function buildTitle(s: {
       path: f.path,
       subtitles: f.subtitles ?? [],
       added: f.mtime,
+      duration: f.duration,
     };
   });
   episodes.sort((a, b) => a.season - b.season || a.number - b.number);

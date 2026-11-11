@@ -100,6 +100,8 @@ export interface Episode {
   path?: string | undefined;
   subtitles?: SubSource[] | undefined;
   added?: number | undefined;
+  /** duración en segundos, si se conoce (p. ej. LuluStream) */
+  duration?: number | undefined;
 }
 
 export interface Title {

@@ -3,6 +3,7 @@ import { ArrowLeft, Maximize2, Minimize2, SkipBack, SkipForward } from "lucide-r
 import type { Episode, Title } from "./types";
 import { episodeTitle } from "./library";
 import { embedSrc } from "./lulu";
+import { actions, useStore } from "./store";
 
 interface Props {
   title: Title;
@@ -47,6 +48,54 @@ export function EmbedPlayer({
   const [fs, setFs] = useState(false);
   const [bar, setBar] = useState(true);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const settings = useStore().settings;
+
+  /*
+   * El vídeo va dentro del iframe de LuluStream (otro dominio): no podemos leer su tiempo real.
+   * Estimamos la posición con un reloj que avanza mientras el reproductor está abierto y la
+   * pestaña visible, y la guardamos en el historial / "Seguir viendo".
+   */
+  const dur = episode.duration ?? 0;
+  const pos = useRef(startAt);
+  const [time, setTime] = useState(startAt);
+  useEffect(() => {
+    if (hidden) return;
+    pos.current = startAt;
+    setTime(startAt);
+    let last = Date.now();
+    let savedAt = Date.now();
+    const save = () => {
+      if (pos.current - startAt < 5) return; // apenas se ha visto: no ensuciar el historial
+      actions.setProgress(episode.id, title.id, pos.current, dur);
+    };
+    const i = setInterval(() => {
+      const now = Date.now();
+      const dt = (now - last) / 1000;
+      last = now;
+      if (document.hidden) return;
+      pos.current = dur ? Math.min(dur, pos.current + dt) : pos.current + dt;
+      setTime(pos.current);
+      if (now - savedAt > 10_000) {
+        savedAt = now;
+        save();
+      }
+    }, 1000);
+    return () => {
+      clearInterval(i);
+      save();
+    };
+  }, [episode.id, title.id, startAt, dur, hidden]);
+
+  const remaining = dur - time;
+  const showNext = !!next && settings.autoplayNext && dur > 60 && remaining > 0 && remaining < (settings.nextAt || 20);
+  const ended = !!next && settings.autoplayNext && dur > 60 && remaining <= 0;
+  const advanced = useRef("");
+  useEffect(() => {
+    if (ended && !hidden && advanced.current !== episode.id) {
+      advanced.current = episode.id;
+      onNext();
+    }
+  }, [ended, hidden, onNext, episode.id]);
 
   const toggleFs = useCallback(async () => {
     const d = document as FsDoc;
@@ -162,6 +211,14 @@ export function EmbedPlayer({
         allowFullScreen
         referrerPolicy="origin"
       />
+      {showNext && (
+        <div className="absolute bottom-6 right-6 z-10 flex items-center gap-3 rounded-lg bg-scrim/90 px-4 py-3 shadow-lg">
+          <span className="text-sm">Siguiente episodio en {Math.ceil(remaining)} s</span>
+          <button onClick={onNext} className="rounded-md bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground">
+            Ver ahora
+          </button>
+        </div>
+      )}
     </div>
   );
 }

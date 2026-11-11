@@ -29,6 +29,13 @@ export function embedSrc(url: string, at = 0, autoplay = false): string {
   return `${url}${url.includes("?") ? "&" : "?"}${p}#t=${Math.floor(at)}`;
 }
 
+/** Duración de LuluStream ("1234" segundos o "01:02:03") a segundos. */
+export function parseLength(l?: string): number | undefined {
+  if (!l) return undefined;
+  const n = l.includes(":") ? l.split(":").reduce((a, x) => a * 60 + (Number(x) || 0), 0) : Number(l);
+  return n > 0 && Number.isFinite(n) ? n : undefined;
+}
+
 export const embedUrl = (code: string) => LULU.EMBED_BASE + encodeURIComponent(code);
 export const isEmbed = (url: string) => url.startsWith(LULU.EMBED_BASE) || /\/e\/[a-z0-9]+$/i.test(url);
 
@@ -76,6 +83,7 @@ export function titlesFromLulu(list: LuluVideo[]): Title[] {
         rel: series ? v.title : `${v.title}.mp4`,
         name: v.title,
         url: embedUrl(v.code),
+        duration: parseLength(v.length),
         mtime: Date.parse(String(v.uploaded ?? "").replace(" ", "T")) || now - (gi * 100 + i) * 1000,
       })),
       images: thumb ? { poster: thumb, background: thumb } : undefined,
