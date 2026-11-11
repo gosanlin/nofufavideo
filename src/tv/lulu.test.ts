@@ -18,3 +18,17 @@ describe("catálogo LuluStream", () => {
     expect(r.map((v) => v.title)).toEqual(["Nuevo", "X"]);
   });
 });
+
+describe("pasarelas", () => {
+  afterEach(() => vi.restoreAllMocks());
+  it("nunca llama a la API de LuluStream directamente (no permite CORS)", async () => {
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (u: string) => {
+      urls.push(u);
+      return new Response(JSON.stringify({ status: 200, result: { pages: 1, files: [] } }));
+    }));
+    await fromApi("k");
+    expect(urls.length).toBeGreaterThan(0);
+    expect(urls.every((u) => !u.startsWith("https://api.lulustream.com"))).toBe(true);
+  });
+});

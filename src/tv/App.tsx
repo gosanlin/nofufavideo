@@ -33,6 +33,8 @@ interface Playing {
   titleId: string;
   at: number;
   queue: string[] | null;
+  /** episodios ya vistos en la emisión aleatoria, para poder volver atrás */
+  history?: string[];
 }
 
 const NAV: [Page, string, typeof HomeIcon][] = [
@@ -216,6 +218,26 @@ export function TvApp() {
     const i = curTitle.episodes.findIndex((e) => e.id === cur.id);
     return curTitle.episodes[i + 1];
   }, [play, cur, curTitle, epById]);
+  const prevEp = useMemo(() => {
+    if (!play || !cur || !curTitle) return undefined;
+    if (play.queue) return epById.get(play.history?.[play.history.length - 1] ?? "") ?? undefined;
+    const i = curTitle.episodes.findIndex((e) => e.id === cur.id);
+    return i > 0 ? curTitle.episodes[i - 1] : undefined;
+  }, [play, cur, curTitle, epById]);
+
+  const goPrev = () =>
+    setPlay((p) => {
+      if (!p || !prevEp) return p;
+      if (p.queue)
+        return {
+          epId: prevEp.id,
+          titleId: prevEp.titleId,
+          at: 0,
+          queue: [p.epId, ...p.queue],
+          history: (p.history ?? []).slice(0, -1),
+        };
+      return { epId: prevEp.id, titleId: prevEp.titleId, at: s.progress[prevEp.id]?.t ?? 0, queue: null };
+    });
 
   const goNext = () =>
     setPlay((p) => {
@@ -225,7 +247,13 @@ export function TvApp() {
         if (!qu.length) qu = shuffleQueue(poolFor(), Math.random, p.epId);
         const id = qu[0];
         if (!id) return null;
-        return { epId: id, titleId: epById.get(id)!.titleId, at: 0, queue: qu.slice(1) };
+        return {
+          epId: id,
+          titleId: epById.get(id)!.titleId,
+          at: 0,
+          queue: qu.slice(1),
+          history: [...(p.history ?? []), p.epId].slice(-50),
+        };
       }
       return nextEp
         ? {
@@ -552,6 +580,8 @@ export function TvApp() {
             setPlayHidden(false);
           }}
           onNext={goNext}
+          prev={prevEp}
+          onPrev={goPrev}
           onRandom={randomNow}
           hidden={playHidden}
           onMinimize={() => setPlayHidden(true)}

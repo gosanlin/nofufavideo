@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import {
   ArrowLeft,
   Captions,
+  ChevronLeft,
   ChevronRight,
   Loader2,
   Maximize2,
@@ -73,8 +74,10 @@ interface Props {
   startAt: number;
   broadcast: boolean;
   next?: Episode | undefined;
+  prev?: Episode | undefined;
   onClose: () => void;
   onNext: () => void;
+  onPrev?: (() => void) | undefined;
   onRandom: () => void;
   /** oculto mientras se ve en la ventana flotante (PiP) */
   hidden?: boolean | undefined;
@@ -111,8 +114,10 @@ function VideoPlayer({
   startAt,
   broadcast,
   next,
+  prev,
   onClose,
   onNext,
+  onPrev,
   onRandom,
   hidden = false,
   onMinimize,
@@ -515,6 +520,7 @@ function VideoPlayer({
     else if (k === "f") toggleFs();
     else if (k === "c") chooseSub(sub ? null : (tracks[0] ?? null));
     else if (k === "n" && next) onNext();
+    else if (k === "b" && prev && onPrev) onPrev();
     else if (k === "r") onRandom();
     else if (k === "z" || k === "x") {
       const v = clampSync(subDelay + (k === "x" ? 0.1 : -0.1));
@@ -1058,15 +1064,25 @@ function VideoPlayer({
                 <span className="text-xs text-overlay-foreground/60">Convertido al vuelo</span>
               )}
             </div>
-            {next && (
-              <button
-                onClick={onNext}
-                className="flex items-center gap-1 font-medium text-overlay-foreground/90 hover:text-overlay-foreground"
-              >
-                {broadcast ? "Siguiente aleatorio" : "Siguiente episodio"}{" "}
-                <ChevronRight className="size-5" />
-              </button>
-            )}
+            <div className="flex items-center gap-6">
+              {prev && onPrev && (
+                <button
+                  onClick={onPrev}
+                  className="flex items-center gap-1 font-medium text-overlay-foreground/90 hover:text-overlay-foreground"
+                >
+                  <ChevronLeft className="size-5" /> {broadcast ? "Anterior" : "Episodio anterior"}
+                </button>
+              )}
+              {next && (
+                <button
+                  onClick={onNext}
+                  className="flex items-center gap-1 font-medium text-overlay-foreground/90 hover:text-overlay-foreground"
+                >
+                  {broadcast ? "Siguiente aleatorio" : "Siguiente episodio"}{" "}
+                  <ChevronRight className="size-5" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

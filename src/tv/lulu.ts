@@ -84,13 +84,18 @@ export function titlesFromLulu(list: LuluVideo[]): Title[] {
 }
 
 const parseJson = (t: string) => JSON.parse(t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1));
+/**
+ * La API de LuluStream no permite llamadas desde otras webs (sin cabecera CORS), así que desde
+ * GitHub Pages pedirla directamente SIEMPRE falla. Solo se usan pasarelas públicas que sí la añaden.
+ * La fuente principal es videos.json, que GitHub Actions genera con el secreto LULU_API_KEY.
+ */
 const GATEWAYS = [
-  (u: string) => u,
-  (u: string) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
-  (u: string) => "https://api.allorigins.win/get?url=" + encodeURIComponent(u),
-  (u: string) => "https://corsproxy.io/?url=" + encodeURIComponent(u),
   (u: string) => "https://r.jina.ai/" + u,
+  (u: string) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
+  (u: string) => "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(u),
 ];
+/** una pasarela colgada no debe bloquear la carga del catálogo */
+const GATEWAY_TIMEOUT = 10_000;
 
 /** Clave de Luluvido guardada en este navegador (Ajustes), o la de la build. */
 const KEY_STORE = "nofufa.luluKey";
@@ -108,7 +113,10 @@ async function apiPage(key: string, p: number): Promise<ApiPage> {
   const u = `${LULU.API_BASE}/file/list?key=${encodeURIComponent(key)}&per_page=100&page=${p}&_=${Date.now()}`;
   for (const g of GATEWAYS) {
     try {
-      const r = await fetch(g(u), { cache: "no-store" });
+      const r = await fetch(g(u), {
+        cache: "no-store",
+        signal: typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(GATEWAY_TIMEOUT) : null,
+      });
       if (!r.ok) continue;
       let x = parseJson(await r.text());
       if (typeof x.contents === "string") x = parseJson(x.contents);
