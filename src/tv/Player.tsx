@@ -586,7 +586,7 @@ function VideoPlayer({
   })();
   const remaining = dur - time;
   const showNextCard =
-    !!next && settings.autoplayNext && dur > 60 && remaining < 20 && remaining > 0;
+    !!next && settings.autoplayNext && dur > 60 && remaining < (settings.nextAt || 20) && remaining > 0;
   const showSkipIntro =
     settings.skipIntro && !!intro && time >= intro.s - 0.5 && time < intro.e - 1.5;
   const hd = probe?.height || video.current?.videoHeight || 0;

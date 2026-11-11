@@ -28,8 +28,9 @@ export function Home({ titles, onOpen, onPlay }: Props) {
     }
     return [...latest.entries()]
       .sort((a, b) => b[1].at - a[1].at)
+      .slice(0, s.settings.continueLimit || 20)
       .map(([id, v]) => ({ title: byId.get(id)!, ...v }));
-  }, [s.progress, s.hiddenContinue, byId]);
+  }, [s.progress, s.hiddenContinue, s.settings.continueLimit, byId]);
 
   const featured = useMemo(() => {
     const withArt = titles.filter((t) => backdrop(t));
@@ -124,7 +125,7 @@ export function Home({ titles, onOpen, onPlay }: Props) {
       )}
 
       <div className="relative -mt-10 space-y-2 sm:-mt-14 sm:space-y-4">
-        {cont.length > 0 && (
+        {s.settings.showContinue && cont.length > 0 && (
           <Row title="Seguir viendo">
             {cont.map(({ title: t, ep, t: at, d }) => (
               <Card

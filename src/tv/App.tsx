@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FolderOpen, RefreshCw, Search, Settings, X, ArrowLeft, Trash2, FolderPlus, Home as HomeIcon, Film, Tv, Sparkles, Bookmark } from "lucide-react";
+import { FolderOpen, RefreshCw, Search, Settings, X, ArrowLeft, Trash2, FolderPlus, Home as HomeIcon, Film, Tv, Sparkles, Bookmark, History as HistoryIcon, Download, Upload, RotateCcw } from "lucide-react";
 import type { Episode, Keys, Meta, Title } from "./types";
 import { demoTitles, shuffleQueue, titlesFromRoots } from "./library";
 import {
@@ -20,10 +20,11 @@ import { actions, useStore } from "./store";
 import { Home, Browse } from "./Home";
 import { TitlePage } from "./TitlePage";
 import { Player } from "./Player";
+import { HistoryPage } from "./History";
 import logo from "./logo.png";
 import { getApiKey, loadLulu, setApiKey } from "./lulu";
 
-type Page = "home" | "movie" | "series" | "anime" | "video" | "list" | "search" | "title";
+type Page = "home" | "movie" | "series" | "anime" | "video" | "list" | "search" | "title" | "history";
 interface View {
   page: Page;
   id?: string;
@@ -43,6 +44,7 @@ const NAV: [Page, string, typeof HomeIcon][] = [
   ["series", "Series", Tv],
   ["anime", "Anime", Sparkles],
   ["list", "Mi lista", Bookmark],
+  ["history", "Historial", HistoryIcon],
 ];
 
 export function TvApp() {
@@ -209,7 +211,7 @@ export function TvApp() {
     startPlay(ep, at);
   };
   const startPlay = (ep: Episode, at: number) =>
-    setPlay({ epId: ep.id, titleId: ep.titleId, at, queue: null });
+    setPlay({ epId: ep.id, titleId: ep.titleId, at: s.settings.resume ? at : 0, queue: null });
   const cur = play ? epById.get(play.epId) : undefined;
   const curTitle = cur ? byId.get(cur.titleId) : undefined;
   const nextEp = useMemo(() => {
@@ -411,6 +413,9 @@ export function TvApp() {
             onPlay={(_t, ep, at) => startEp(ep, at)}
           />
         )}
+        {view.page === "history" && (
+          <HistoryPage titles={shown} onOpen={open} onPlay={(ep, at) => startEp(ep, at)} />
+        )}
         {view.page === "title" && titleView && (
           <TitlePage
             key={titleView.id}
@@ -552,8 +557,133 @@ export function TvApp() {
                 set={(v) => actions.setSettings({ nightMode: v })}
               />
             </div>
+            <p className="mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Avanzado de reproducción
+            </p>
+            <div className="mt-2 space-y-3 text-sm">
+              <Toggle
+                label="Reanudar donde lo dejé"
+                on={s.settings.resume}
+                set={(v) => actions.setSettings({ resume: v })}
+              />
+              <Choice
+                label="Velocidad por defecto"
+                value={s.settings.speed}
+                options={[0.75, 1, 1.25, 1.5, 2].map((v) => [v, `${v}x`])}
+                set={(v) => actions.setSettings({ speed: v })}
+              />
+              <Choice
+                label="Aviso de siguiente episodio"
+                value={s.settings.nextAt}
+                options={[10, 20, 30, 60].map((v) => [v, `${v} s`])}
+                set={(v) => actions.setSettings({ nextAt: v })}
+              />
+              <Toggle
+                label="Marca de agua en emisión aleatoria"
+                on={s.settings.showWatermark}
+                set={(v) => actions.setSettings({ showWatermark: v })}
+              />
+            </div>
+
+            <p className="mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Seguir viendo e historial
+            </p>
+            <div className="mt-2 space-y-3 text-sm">
+              <Toggle
+                label="Mostrar “Seguir viendo” en Inicio"
+                on={s.settings.showContinue}
+                set={(v) => actions.setSettings({ showContinue: v })}
+              />
+              <Choice
+                label="Títulos en “Seguir viendo”"
+                value={s.settings.continueLimit}
+                options={[5, 10, 20, 50].map((v) => [v, String(v)])}
+                set={(v) => actions.setSettings({ continueLimit: v })}
+              />
+              <Choice
+                label="Marcar como visto al llegar al"
+                value={s.settings.doneAt}
+                options={[85, 90, 92, 95, 98].map((v) => [v, `${v}%`])}
+                set={(v) => actions.setSettings({ doneAt: v })}
+              />
+              <Toggle
+                label="Pausar historial (no guardar lo que veo)"
+                on={s.settings.pauseHistory}
+                set={(v) => actions.setSettings({ pauseHistory: v })}
+              />
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  onClick={() => {
+                    setSettingsOpen(false);
+                    go({ page: "history" });
+                  }}
+                  className="flex items-center gap-2 rounded-md bg-secondary px-3 py-2 font-semibold hover:bg-accent"
+                >
+                  <HistoryIcon className="size-4" /> Ver historial
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm("¿Vaciar la fila “Seguir viendo”? El historial se conserva."))
+                      actions.clearContinue([...new Set(Object.values(s.progress).map((p) => p.titleId))]);
+                  }}
+                  className="rounded-md bg-secondary px-3 py-2 font-semibold hover:bg-accent"
+                >
+                  Vaciar “Seguir viendo”
+                </button>
+              </div>
+            </div>
+
             {window.nofufa?.getKeys && <Accounts />}
-            <div className="mt-6 border-t pt-4">
+
+            <p className="mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Mis datos
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Guarda una copia de tu historial, listas y ajustes para pasarlos a otro dispositivo.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2 text-sm">
+              <button
+                onClick={() => {
+                  const blob = new Blob([actions.exportData()], { type: "application/json" });
+                  const a = document.createElement("a");
+                  a.href = URL.createObjectURL(blob);
+                  a.download = `nofufa-copia-${new Date().toISOString().slice(0, 10)}.json`;
+                  a.click();
+                  URL.revokeObjectURL(a.href);
+                }}
+                className="flex items-center gap-2 rounded-md bg-secondary px-3 py-2 font-semibold hover:bg-accent"
+              >
+                <Download className="size-4" /> Exportar
+              </button>
+              <label className="flex cursor-pointer items-center gap-2 rounded-md bg-secondary px-3 py-2 font-semibold hover:bg-accent">
+                <Upload className="size-4" /> Importar
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!f) return;
+                    try {
+                      actions.importData(await f.text());
+                      alert("Datos importados correctamente.");
+                    } catch {
+                      alert("Ese archivo no es una copia válida de Nofufa Video.");
+                    }
+                  }}
+                />
+              </label>
+              <button
+                onClick={() => {
+                  if (confirm("¿Restablecer todos los ajustes a sus valores por defecto?")) actions.resetSettings();
+                }}
+                className="flex items-center gap-2 rounded-md bg-secondary px-3 py-2 font-semibold hover:bg-accent"
+              >
+                <RotateCcw className="size-4" /> Restablecer ajustes
+              </button>
+            </div>
+            <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 border-t pt-4">
               <button
                 onClick={() => {
                   if (confirm("¿Borrar todo el historial de reproducción?")) actions.clearHistory();
@@ -561,6 +691,14 @@ export function TvApp() {
                 className="text-sm font-semibold text-destructive hover:underline"
               >
                 Borrar historial de reproducción
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm("¿Vaciar Mi lista y tus valoraciones?")) actions.clearWatchlist();
+                }}
+                className="text-sm font-semibold text-destructive hover:underline"
+              >
+                Vaciar Mi lista
               </button>
             </div>
           </div>
@@ -621,6 +759,35 @@ function ApiKeyField({ onSaved }: { onSaved: () => void }) {
       <p className="mt-1 text-xs text-muted-foreground">
         Se guarda solo en este navegador. Sin clave, los vídeos nuevos aparecen cuando GitHub actualiza el catálogo (cada 15 min).
       </p>
+    </div>
+  );
+}
+
+function Choice<T extends number>({
+  label,
+  value,
+  options,
+  set,
+}: {
+  label: string;
+  value: T;
+  options: [T, string][];
+  set: (v: T) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <span>{label}</span>
+      <div className="flex gap-1">
+        {options.map(([v, l]) => (
+          <button
+            key={v}
+            onClick={() => set(v)}
+            className={`rounded px-2 py-1 text-xs font-semibold ${value === v ? "bg-primary text-primary-foreground" : "bg-secondary hover:bg-accent"}`}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

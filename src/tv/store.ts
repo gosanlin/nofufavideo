@@ -11,6 +11,8 @@ export interface State {
   watched: Record<string, boolean>;
   hiddenContinue: Record<string, number>; // titleId -> fecha en que se quitó
   watchlist: string[];
+  /** historial de visto: más reciente primero, una entrada por episodio */
+  history: HistoryEntry[];
   rating: Record<string, 1 | -1>;
   /** retardo de subtítulos/audio por episodio (segundos) */
   sync: Record<string, { sub?: number; audio?: number }>;
@@ -26,7 +28,33 @@ export interface State {
     tvMode: boolean;
     nightMode: boolean;
     speed: number;
+    /** no guardar progreso ni historial */
+    pauseHistory: boolean;
+    /** mostrar la fila "Seguir viendo" en Inicio */
+    showContinue: boolean;
+    /** máximo de títulos en "Seguir viendo" */
+    continueLimit: number;
+    /** % a partir del cual un episodio cuenta como visto */
+    doneAt: number;
+    /** segundos antes del final para mostrar "Siguiente episodio" */
+    nextAt: number;
+    /** al abrir un título, reanudar donde se dejó */
+    resume: boolean;
   };
+}
+
+export interface HistoryEntry {
+  epId: string;
+  titleId: string;
+  at: number;
+  t: number;
+  d: number;
+}
+export const HISTORY_MAX = 500;
+
+/** Inserta/actualiza la entrada de un episodio al principio del historial. */
+export function pushHistory(h: HistoryEntry[], e: HistoryEntry): HistoryEntry[] {
+  return [e, ...h.filter((x) => x.epId !== e.epId)].slice(0, HISTORY_MAX);
 }
 
 /**
@@ -48,6 +76,7 @@ const empty: State = {
   watched: {},
   hiddenContinue: {},
   watchlist: [],
+  history: [],
   rating: {},
   prefs: {},
   sync: {},
@@ -60,8 +89,15 @@ const empty: State = {
     tvMode: false,
     nightMode: false,
     speed: 1,
+    pauseHistory: false,
+    showContinue: true,
+    continueLimit: 20,
+    doneAt: 92,
+    nextAt: 20,
+    resume: true,
   },
 };
+export const DEFAULT_SETTINGS = empty.settings;
 
 function load(): State {
   try {
@@ -106,7 +142,8 @@ export function useStore() {
 export const actions = {
   setProgress: (epId: string, titleId: string, t: number, d: number) =>
     update((s) => {
-      const done = d > 0 && t / d > 0.92;
+      if (s.settings.pauseHistory) return s;
+      const done = d > 0 && (t / d) * 100 >= s.settings.doneAt;
       const progress = { ...s.progress };
       if (done) delete progress[epId];
       else progress[epId] = { t, d, at: Date.now(), titleId };
@@ -117,6 +154,7 @@ export const actions = {
         progress,
         hiddenContinue: hidden,
         watched: done ? { ...s.watched, [epId]: true } : s.watched,
+        history: pushHistory(s.history ?? [], { epId, titleId, at: Date.now(), t, d }),
       };
     }),
   setWatched: (ids: string[], on: boolean) =>
@@ -160,7 +198,25 @@ export const actions = {
     })),
   setSync: (epId: string, p: { sub?: number; audio?: number }) =>
     update((s) => ({ ...s, sync: { ...s.sync, [epId]: { ...s.sync[epId], ...p } } })),
-  clearHistory: () => update((s) => ({ ...s, progress: {}, watched: {}, hiddenContinue: {} })),
+  clearHistory: () =>
+    update((s) => ({ ...s, progress: {}, watched: {}, hiddenContinue: {}, history: [] })),
+  removeHistory: (epIds: string[]) =>
+    update((s) => ({ ...s, history: s.history.filter((h) => !epIds.includes(h.epId)) })),
+  clearContinue: (titleIds: string[]) =>
+    update((s) => {
+      const hidden = { ...s.hiddenContinue };
+      for (const id of titleIds) hidden[id] = Date.now();
+      return { ...s, hiddenContinue: hidden };
+    }),
+  resetSettings: () => update((s) => ({ ...s, settings: { ...empty.settings, langAt: Date.now() } })),
+  clearWatchlist: () => update((s) => ({ ...s, watchlist: [], rating: {} })),
+  exportData: () => JSON.stringify({ app: "nofufa", v: 2, state: getState() }, null, 2),
+  importData: (json: string) => {
+    const o = JSON.parse(json);
+    const st = o?.state ?? o;
+    if (!st || typeof st !== "object" || !("settings" in st)) throw new Error("Archivo no válido");
+    update(() => ({ ...empty, ...st, settings: { ...empty.settings, ...st.settings } }));
+  },
 };
 
 export function useInterval(fn: () => void, ms: number) {
