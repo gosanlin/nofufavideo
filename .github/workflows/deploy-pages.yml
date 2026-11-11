@@ -4,7 +4,7 @@ on:
     branches: [main]
   workflow_dispatch:
   schedule:
-    - cron: "*/1 * * * *" # refresca el catálogo de LuluStream cada 15 minutos
+    - cron: "*/2 * * * *" # refresca el catálogo de LuluStream cada 15 minutos
 permissions:
   contents: read
   pages: write
