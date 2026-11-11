@@ -1,23 +1,29 @@
-# Nofufa Video
+# Welcome to your Lovable project
 
-Web estática lista para **GitHub Pages**.
+This project was built with [Lovable](https://lovable.dev).
 
-## Publicar
+## Build with Lovable
 
-1. Sube el contenido de este zip a la rama `main` de un repositorio de GitHub.
-2. En el repositorio: **Settings → Pages → Source: GitHub Actions**.
-3. (Opcional) **Settings → Secrets and variables → Actions → New repository secret**:
-   `LULU_API_KEY` con tu clave de LuluStream para descargar el catálogo automáticamente.
-4. Cada push a `main` publica la web. El catálogo se refresca solo cada 15 minutos.
+Open your project in the [Lovable editor](https://lovable.dev) and keep building.
 
-## Local
+- **Ship faster**: describe what you want to build and Lovable handles the code.
+- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
+- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
 
-```bash
-npm install
-npm run dev     # desarrollo
-npm run build   # genera dist/
+## Development
+
+Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+
+```sh
+git clone <this-repository-url>
+cd <repository-name>
+npm i
+npm run dev
 ```
 
-## Atajos del reproductor
+## Built with
 
-`F` pantalla completa · `N` siguiente episodio · `B` episodio anterior · `Esc` salir
+- TanStack Start
+- TypeScript
+- React
+- Tailwind CSS
