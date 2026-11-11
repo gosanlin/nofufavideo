@@ -3,7 +3,7 @@ import type { Title } from "./types";
 
 /** Configuración de LuluStream / Luluvido (heredada de LuluFlix). */
 export const LULU = {
-  EMBED_BASE: "https://luluvido.com/e/",
+  EMBED_BASE: "https://lulustream.com/e/",
   API_BASE: "https://api.lulustream.com/api",
   /** Opcional: clave en tiempo de build (VITE_LULU_API_KEY). Queda visible en la web. */
   API_KEY: (import.meta.env["VITE_LULU_API_KEY"] as string | undefined) ?? "",
