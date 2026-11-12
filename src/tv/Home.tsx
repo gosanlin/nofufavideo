@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import { Info, Play, Plus, Check } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Info, Play, Plus, Check, ChevronLeft, ChevronRight, Pause } from "lucide-react";
 import type { Episode, Kind, Title } from "./types";
 import { actions, useStore } from "./store";
-import { Art, Card, KIND_LABEL, PosterCard, Row, backdrop } from "./ui";
+import { Art, Card, KIND_LABEL, PosterArt, PosterCard, Row, backdrop } from "./ui";
 
 interface Props {
   titles: Title[];
@@ -37,10 +37,21 @@ export function Home({ titles, onOpen, onPlay }: Props) {
     return (withArt.length ? withArt : titles).slice(0, 6);
   }, [titles]);
   const [hi, setHi] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [tick, setTick] = useState(0); // reinicia la barra al cambiar manualmente
+  const n = Math.max(1, featured.length);
+  const DURATION = 8000;
+  const go = (d: number) => {
+    setHi((h) => (h + d + n) % n);
+    setTick((k) => k + 1);
+  };
   useEffect(() => {
-    const i = setInterval(() => setHi((h) => (h + 1) % Math.max(1, featured.length)), 9000);
-    return () => clearInterval(i);
-  }, [featured.length]);
+    if (paused || featured.length < 2) return;
+    const i = setTimeout(() => setHi((h) => (h + 1) % n), DURATION);
+    return () => clearTimeout(i);
+  }, [paused, hi, tick, n, featured.length]);
+  // arrastrar / deslizar el destacado
+  const drag = useRef<{ x: number; moved: boolean } | null>(null);
   const hero = featured[hi % Math.max(1, featured.length)];
 
   const list = s.watchlist.map((id) => byId.get(id)).filter(Boolean) as Title[];
@@ -55,14 +66,30 @@ export function Home({ titles, onOpen, onPlay }: Props) {
   return (
     <div className="pb-24 md:pb-16">
       {hero && (
-        <div className="relative h-[68vh] min-h-[26rem] sm:h-[78vh] sm:min-h-[30rem]">
+        <div
+          className="group/hero relative h-[68vh] min-h-[26rem] touch-pan-y select-none sm:h-[78vh] sm:min-h-[30rem]"
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(false)}
+          onPointerDown={(e) => (drag.current = { x: e.clientX, moved: false })}
+          onPointerUp={(e) => {
+            const d = drag.current;
+            drag.current = null;
+            if (!d) return;
+            const dx = e.clientX - d.x;
+            if (Math.abs(dx) > 60) go(dx < 0 ? 1 : -1);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowLeft") go(-1);
+            if (e.key === "ArrowRight") go(1);
+          }}
+        >
           <div className="absolute inset-0 overflow-hidden">
             {featured.map((t, i) => (
               <div
                 key={t.id}
-                className={`absolute inset-0 transition-opacity duration-1000 ${i === hi ? "opacity-100" : "opacity-0"}`}
+                className={`absolute inset-0 transition-all duration-1000 ${i === hi ? "scale-100 opacity-100" : "scale-105 opacity-0"}`}
               >
-                <Art src={backdrop(t)} alt={t.name} className="size-full object-top" bare />
+                <Art src={backdrop(t)} alt={t.name} className="pointer-events-none size-full object-top" bare />
               </div>
             ))}
             <div className="bg-hero-fade absolute inset-0" />
@@ -111,16 +138,67 @@ export function Home({ titles, onOpen, onPlay }: Props) {
               </button>
             </div>
           </div>
-          <div className="absolute bottom-14 left-4 flex gap-2 sm:bottom-10 sm:left-auto sm:right-12">
-            {featured.map((t, i) => (
+          {featured.length > 1 && (
+            <>
               <button
-                key={t.id}
-                aria-label={`Destacado ${i + 1}`}
-                onClick={() => setHi(i)}
-                className={`h-1.5 rounded-full transition-all ${i === hi ? "w-8 bg-foreground" : "w-3 bg-foreground/40"}`}
-              />
-            ))}
-          </div>
+                aria-label="Anterior destacado"
+                onClick={() => go(-1)}
+                className="btn-round absolute left-3 top-1/2 max-md:hidden -translate-y-1/2 opacity-0 transition group-hover/hero:opacity-100"
+              >
+                <ChevronLeft className="size-6" />
+              </button>
+              <button
+                aria-label="Siguiente destacado"
+                onClick={() => go(1)}
+                className="btn-round absolute right-3 top-1/2 max-md:hidden -translate-y-1/2 opacity-0 transition group-hover/hero:opacity-100"
+              >
+                <ChevronRight className="size-6" />
+              </button>
+              <div className="absolute bottom-14 right-4 hidden items-end gap-2 sm:bottom-16 sm:right-12 md:flex">
+                {paused && <Pause className="mb-1 size-4 text-foreground/70" />}
+                {featured.map((t, i) => (
+                  <button
+                    key={t.id}
+                    aria-label={`Destacado ${i + 1}: ${t.meta?.title ?? t.name}`}
+                    onClick={() => {
+                      setHi(i);
+                      setTick((k) => k + 1);
+                    }}
+                    className={`relative w-14 shrink-0 overflow-hidden rounded-md transition-all duration-300 lg:w-16 ${i === hi ? "-translate-y-2 ring-2 ring-foreground" : "opacity-60 hover:opacity-100"}`}
+                  >
+                    <div className="relative aspect-[2/3]">
+                      <PosterArt t={t} className="absolute inset-0 size-full" />
+                    </div>
+                    {i === hi && (
+                      <div className="absolute inset-x-0 bottom-0 h-1 bg-foreground/30">
+                        <div
+                          key={`${hi}-${tick}`}
+                          className="h-full bg-primary"
+                          style={{
+                            animation: `hero-progress ${DURATION}ms linear forwards`,
+                            animationPlayState: paused ? "paused" : "running",
+                          }}
+                        />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+              <div className="absolute bottom-14 left-4 flex gap-2 md:hidden">
+                {featured.map((t, i) => (
+                  <button
+                    key={t.id}
+                    aria-label={`Destacado ${i + 1}`}
+                    onClick={() => {
+                      setHi(i);
+                      setTick((k) => k + 1);
+                    }}
+                    className={`h-1.5 rounded-full transition-all ${i === hi ? "w-8 bg-foreground" : "w-3 bg-foreground/40"}`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 

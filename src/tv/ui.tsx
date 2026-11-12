@@ -14,7 +14,8 @@ export function poster(t: Title) {
   return t.meta?.poster ?? t.images?.poster ?? t.images?.folder ?? t.images?.cover;
 }
 export function backdrop(t: Title) {
-  return t.meta?.background ?? t.images?.fanart ?? t.images?.background ?? poster(t);
+  // Las carátulas horizontales usan la misma imagen de portada del título.
+  return poster(t) ?? t.meta?.background ?? t.images?.fanart ?? t.images?.background;
 }
 
 /* ---------- miniaturas de episodio (cola con 2 a la vez) ---------- */
@@ -103,6 +104,53 @@ export function Progress({ value, className = "" }: { value: number; className?:
   );
 }
 
+/** Permite desplazar una fila manteniendo pulsado el ratón y arrastrando. */
+export function useDragScroll<T extends HTMLElement>(ref: React.RefObject<T | null>) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let down = false, moved = false, startX = 0, startLeft = 0;
+    const onDown = (e: PointerEvent) => {
+      if (e.pointerType !== "mouse" || e.button !== 0) return;
+      down = true; moved = false; startX = e.clientX; startLeft = el.scrollLeft;
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!down) return;
+      const dx = e.clientX - startX;
+      if (!moved && Math.abs(dx) > 5) {
+        moved = true;
+        el.style.scrollBehavior = "auto";
+        el.style.cursor = "grabbing";
+        el.style.userSelect = "none";
+      }
+      if (moved) el.scrollLeft = startLeft - dx;
+    };
+    const onUp = () => {
+      if (!down) return;
+      down = false;
+      el.style.scrollBehavior = "";
+      el.style.cursor = "";
+      el.style.userSelect = "";
+    };
+    const onClick = (e: MouseEvent) => {
+      if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; }
+    };
+    const onDrag = (e: DragEvent) => e.preventDefault();
+    el.addEventListener("pointerdown", onDown);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    el.addEventListener("click", onClick, true);
+    el.addEventListener("dragstart", onDrag);
+    return () => {
+      el.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      el.removeEventListener("click", onClick, true);
+      el.removeEventListener("dragstart", onDrag);
+    };
+  }, [ref]);
+}
+
 export function Row({
   title,
   children,
@@ -113,6 +161,7 @@ export function Row({
   action?: ReactNode;
 }) {
   const sc = useRef<HTMLDivElement>(null);
+  useDragScroll(sc);
   const by = (d: number) =>
     sc.current?.scrollBy({ left: d * sc.current.clientWidth * 0.85, behavior: "smooth" });
   return (
@@ -123,7 +172,7 @@ export function Row({
       </div>
       <div
         ref={sc}
-        className="scrollbar-none flex gap-2 overflow-x-auto scroll-smooth px-4 pb-5 pt-2 sm:gap-3 sm:px-8 sm:pb-6 lg:px-12"
+        className="scrollbar-none flex cursor-grab gap-2 overflow-x-auto scroll-smooth px-4 pb-5 pt-2 sm:gap-3 sm:px-8 sm:pb-6 lg:px-12"
       >
         {children}
       </div>

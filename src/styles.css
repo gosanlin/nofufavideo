@@ -155,3 +155,8 @@
   box-shadow: 0 0 0 0 transparent; transition: transform .2s, box-shadow .2s;
   &:hover { box-shadow: 0 0 0 2px var(--foreground), 0 18px 40px -12px var(--scrim); }
 }
+
+@keyframes hero-progress {
+  from { width: 0%; }
+  to { width: 100%; }
+}

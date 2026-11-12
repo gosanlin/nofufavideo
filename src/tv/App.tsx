@@ -20,7 +20,6 @@ import { actions, useStore } from "./store";
 import { Home, Browse } from "./Home";
 import { TitlePage } from "./TitlePage";
 import { Player } from "./Player";
-import { HistoryPage } from "./History";
 import logo from "./logo.png";
 import { getApiKey, loadLulu, setApiKey } from "./lulu";
 
@@ -44,7 +43,6 @@ const NAV: [Page, string, typeof HomeIcon][] = [
   ["series", "Series", Tv],
   ["anime", "Anime", Sparkles],
   ["list", "Mi lista", Bookmark],
-  ["history", "Historial", HistoryIcon],
 ];
 
 export function TvApp() {
@@ -413,9 +411,6 @@ export function TvApp() {
             onPlay={(_t, ep, at) => startEp(ep, at)}
           />
         )}
-        {view.page === "history" && (
-          <HistoryPage titles={shown} onOpen={open} onPlay={(ep, at) => startEp(ep, at)} />
-        )}
         {view.page === "title" && titleView && (
           <TitlePage
             key={titleView.id}
@@ -542,97 +537,11 @@ export function TvApp() {
                 set={(v) => actions.setSettings({ autoplayNext: v })}
               />
               <Toggle
-                label="Mostrar botón “Saltar intro”"
-                on={s.settings.skipIntro}
-                set={(v) => actions.setSettings({ skipIntro: v })}
-              />
-              <Toggle
                 label="Modo TV (flechas / mando, sin ratón)"
                 on={s.settings.tvMode}
                 set={(v) => actions.setSettings({ tvMode: v })}
               />
-              <Toggle
-                label="Modo nocturno (voces claras)"
-                on={s.settings.nightMode}
-                set={(v) => actions.setSettings({ nightMode: v })}
-              />
             </div>
-            <p className="mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Avanzado de reproducción
-            </p>
-            <div className="mt-2 space-y-3 text-sm">
-              <Toggle
-                label="Reanudar donde lo dejé"
-                on={s.settings.resume}
-                set={(v) => actions.setSettings({ resume: v })}
-              />
-              <Choice
-                label="Velocidad por defecto"
-                value={s.settings.speed}
-                options={[0.75, 1, 1.25, 1.5, 2].map((v) => [v, `${v}x`])}
-                set={(v) => actions.setSettings({ speed: v })}
-              />
-              <Choice
-                label="Aviso de siguiente episodio"
-                value={s.settings.nextAt}
-                options={[10, 20, 30, 60].map((v) => [v, `${v} s`])}
-                set={(v) => actions.setSettings({ nextAt: v })}
-              />
-              <Toggle
-                label="Marca de agua en emisión aleatoria"
-                on={s.settings.showWatermark}
-                set={(v) => actions.setSettings({ showWatermark: v })}
-              />
-            </div>
-
-            <p className="mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Seguir viendo e historial
-            </p>
-            <div className="mt-2 space-y-3 text-sm">
-              <Toggle
-                label="Mostrar “Seguir viendo” en Inicio"
-                on={s.settings.showContinue}
-                set={(v) => actions.setSettings({ showContinue: v })}
-              />
-              <Choice
-                label="Títulos en “Seguir viendo”"
-                value={s.settings.continueLimit}
-                options={[5, 10, 20, 50].map((v) => [v, String(v)])}
-                set={(v) => actions.setSettings({ continueLimit: v })}
-              />
-              <Choice
-                label="Marcar como visto al llegar al"
-                value={s.settings.doneAt}
-                options={[85, 90, 92, 95, 98].map((v) => [v, `${v}%`])}
-                set={(v) => actions.setSettings({ doneAt: v })}
-              />
-              <Toggle
-                label="Pausar historial (no guardar lo que veo)"
-                on={s.settings.pauseHistory}
-                set={(v) => actions.setSettings({ pauseHistory: v })}
-              />
-              <div className="flex flex-wrap gap-2 pt-1">
-                <button
-                  onClick={() => {
-                    setSettingsOpen(false);
-                    go({ page: "history" });
-                  }}
-                  className="flex items-center gap-2 rounded-md bg-secondary px-3 py-2 font-semibold hover:bg-accent"
-                >
-                  <HistoryIcon className="size-4" /> Ver historial
-                </button>
-                <button
-                  onClick={() => {
-                    if (confirm("¿Vaciar la fila “Seguir viendo”? El historial se conserva."))
-                      actions.clearContinue([...new Set(Object.values(s.progress).map((p) => p.titleId))]);
-                  }}
-                  className="rounded-md bg-secondary px-3 py-2 font-semibold hover:bg-accent"
-                >
-                  Vaciar “Seguir viendo”
-                </button>
-              </div>
-            </div>
-
             {window.nofufa?.getKeys && <Accounts />}
 
             <p className="mt-6 text-xs font-bold uppercase tracking-wider text-muted-foreground">
