@@ -4,7 +4,7 @@ on:
     branches: [main]
   workflow_dispatch:
   schedule:
-    - cron: "*/1 * * * *" # refresca el catálogo de LuluStream cada 15 minutos
+    - cron: "*/15 * * * *"
 permissions:
   contents: read
   pages: write
@@ -21,11 +21,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - run: npm install --no-audit --no-fund
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
       - name: Descargar catálogo de Luluvido
         if: ${{ env.LULU_API_KEY != '' }}
+        continue-on-error: true
         run: node scripts/update-videos.mjs
-      - run: npm run build
+      - run: bun run build:pages
+      - run: touch dist/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with: { path: dist }
