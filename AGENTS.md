@@ -28,3 +28,7 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+- Keep the GitHub Pages delivery static with relative asset paths and the existing hash navigation, because it must work under repository subdirectories without a server.
+- Embed controls operate on the iframe container or local site state only; do not infer media events from another origin, because LuluStream provides no verified player messaging API.
+- Automatic episode advancement stays disabled when loading or importing saved settings, because legacy preferences must not restore the removed feature.
