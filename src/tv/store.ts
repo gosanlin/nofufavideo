@@ -65,8 +65,8 @@ export function langPrefs(s: State, titleId: string): { audio: string; sub: stri
   const p = s.prefs[titleId];
   const fresh = !!p && (p.at ?? 0) > (s.settings.langAt ?? 0);
   return {
-    audio: (fresh && p!.audio) || s.settings.audioLang,
-    sub: fresh && p!.sub !== undefined ? p!.sub : s.settings.subLang,
+    audio: (fresh && p?.audio) || s.settings.audioLang,
+    sub: fresh && p?.sub !== undefined ? p.sub : s.settings.subLang,
   };
 }
 
@@ -82,7 +82,7 @@ const empty: State = {
   sync: {},
   settings: {
     skipIntro: false,
-    autoplayNext: true,
+    autoplayNext: false,
     audioLang: "spa",
     subLang: "",
     showWatermark: true,
@@ -102,7 +102,7 @@ export const DEFAULT_SETTINGS = empty.settings;
 function load(): State {
   try {
     const s = JSON.parse(localStorage.getItem(KEY) ?? "null");
-    return s ? { ...empty, ...s, settings: { ...empty.settings, ...s.settings } } : empty;
+    return s ? { ...empty, ...s, settings: { ...empty.settings, ...s.settings, autoplayNext: false } } : empty;
   } catch {
     return empty;
   }
@@ -193,6 +193,7 @@ export const actions = {
       settings: {
         ...s.settings,
         ...p,
+        autoplayNext: false,
         ...("audioLang" in p || "subLang" in p ? { langAt: Date.now() } : {}),
       },
     })),
@@ -215,7 +216,7 @@ export const actions = {
     const o = JSON.parse(json);
     const st = o?.state ?? o;
     if (!st || typeof st !== "object" || !("settings" in st)) throw new Error("Archivo no válido");
-    update(() => ({ ...empty, ...st, settings: { ...empty.settings, ...st.settings } }));
+    update(() => ({ ...empty, ...st, settings: { ...empty.settings, ...st.settings, autoplayNext: false } }));
   },
 };
 

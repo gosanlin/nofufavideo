@@ -58,14 +58,17 @@ describe("filtros de biblioteca", () => {
   it("filtra por género", () => {
     expect(filterTitles(list, { ...EMPTY_FILTER, genre: "ciencia ficción" }).map((t) => t.id)).toEqual(["a", "c"]);
   });
-  it("filtra por año", () => {
-    expect(filterTitles(list, { ...EMPTY_FILTER, year: "2023" }).map((t) => t.id)).toEqual(["b"]);
+  it("ordena por nombre A-Z y Z-A", () => {
+    expect(filterTitles(list, { ...EMPTY_FILTER, name: "az" }).map((t) => t.id)).toEqual(["a", "b", "c"]);
+    expect(filterTitles(list, { ...EMPTY_FILTER, name: "za" }).map((t) => t.id)).toEqual(["c", "b", "a"]);
   });
-  it("filtra por resolución", () => {
-    expect(filterTitles(list, { ...EMPTY_FILTER, res: "4k" }, { a: 2160, b: 1080 }).map((t) => t.id)).toEqual(["a"]);
+  it("ordena por fecha nuevo / viejo", () => {
+    expect(filterTitles(list, { ...EMPTY_FILTER, date: "new" }).map((t) => t.id)).toEqual(["b", "c", "a"]);
+    expect(filterTitles(list, { ...EMPTY_FILTER, date: "old" }).map((t) => t.id)).toEqual(["a", "c", "b"]);
   });
-  it("ordena por año, más reciente primero", () => {
-    expect(filterTitles(list, { ...EMPTY_FILTER, sort: "year" }).map((t) => t.id)).toEqual(["b", "c", "a"]);
+  it("añadidos recientemente primero", () => {
+    const l = list.map((t, i) => ({ ...t, added: [5, 1, 9][i]! }));
+    expect(filterTitles(l, { ...EMPTY_FILTER, recent: true }).map((t) => t.id)).toEqual(["c", "a", "b"]);
   });
 });
 

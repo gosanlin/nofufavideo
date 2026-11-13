@@ -585,8 +585,7 @@ function VideoPlayer({
     return (((mode === "stream" ? offset : 0) + v.buffered.end(v.buffered.length - 1)) / dur) * 100;
   })();
   const remaining = dur - time;
-  const showNextCard =
-    !!next && settings.autoplayNext && dur > 60 && remaining < (settings.nextAt || 20) && remaining > 0;
+  const showNextCard = false; // Episode changes are manual only.
   const showSkipIntro =
     settings.skipIntro && !!intro && time >= intro.s - 0.5 && time < intro.e - 1.5;
   const hd = probe?.height || video.current?.videoHeight || 0;
@@ -679,8 +678,8 @@ function VideoPlayer({
             }}
             onEnded={() => {
               if (dur) actions.setProgress(episode.id, title.id, dur, dur);
-              if (next) onNext();
-              else setUi(true);
+              setPlaying(false);
+              setUi(true);
             }}
             onError={(e) => {
               const er = e.currentTarget.error;

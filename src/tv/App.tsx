@@ -4,13 +4,11 @@ import type { Episode, Keys, Meta, Title } from "./types";
 import { demoTitles, shuffleQueue, titlesFromRoots } from "./library";
 import {
   EMPTY_FILTER,
-  RES_LABEL,
   applyOverride,
   filterTitles,
   genresOf,
   loadOverrides,
   saveOverride,
-  yearsOf,
   type LibFilter,
   type Overrides,
 } from "./features";
@@ -21,7 +19,7 @@ import { Home, Browse } from "./Home";
 import { TitlePage } from "./TitlePage";
 import { Player } from "./Player";
 import logo from "./logo.png";
-import { getApiKey, loadLulu, setApiKey } from "./lulu";
+import { getApiKey, loadLulu, readCatalogCache, setApiKey } from "./lulu";
 
 type Page = "home" | "movie" | "series" | "anime" | "video" | "list" | "search" | "title" | "history";
 interface View {
@@ -45,10 +43,33 @@ const NAV: [Page, string, typeof HomeIcon][] = [
   ["list", "Mi lista", Bookmark],
 ];
 
+const PAGES: Page[] = ["home", "movie", "series", "anime", "video", "list", "search", "title", "history"];
+/** Ruta en la URL (#/series, #/title/abc) para que F5 mantenga la página en GitHub Pages. */
+export function viewFromHash(h: string): View {
+  const [p, ...rest] = h.replace(/^#\/?/, "").split("/");
+  const page = PAGES.includes(p as Page) ? (p as Page) : "home";
+  const id = rest.length ? decodeURIComponent(rest.join("/")) : undefined;
+  if (page === "title" && !id) return { page: "home" };
+  return id ? { page, id } : { page };
+}
+export const hashFromView = (v: View) =>
+  v.page === "home" ? "#/" : `#/${v.page}${v.id ? "/" + encodeURIComponent(v.id) : ""}`;
+
 export function TvApp() {
   const s = useStore();
   const [titles, setTitles] = useState<Title[]>([]);
-  const [view, setView] = useState<View>({ page: "home" });
+  const [view, setView] = useState<View>(() =>
+    typeof window === "undefined" ? { page: "home" } : viewFromHash(window.location.hash),
+  );
+  useEffect(() => {
+    const h = hashFromView(view);
+    if (window.location.hash !== h) window.history.pushState(null, "", h);
+  }, [view]);
+  useEffect(() => {
+    const on = () => setView(viewFromHash(window.location.hash));
+    window.addEventListener("popstate", on);
+    return () => window.removeEventListener("popstate", on);
+  }, []);
   const [history, setHistory] = useState<View[]>([]);
   const [q, setQ] = useState("");
   const [play, setPlay] = useState<Playing | null>(null);
@@ -59,7 +80,8 @@ export function TvApp() {
   const [filter, setFilter] = useState<LibFilter>(EMPTY_FILTER);
   const [playHidden, setPlayHidden] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [syncAt, setSyncAt] = useState<number | null>(null);
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [catalogMsg, setCatalogMsg] = useState("");
@@ -134,6 +156,7 @@ export function TvApp() {
           setRoots(rs);
           rescan(rs);
         } else enrich(titles);
+        setLoading(false);
       });
     else loadCatalog();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -145,6 +168,7 @@ export function TvApp() {
     try {
       if (fresh) clearMetaCache();
       const list = await loadLulu(fresh);
+      setSyncAt(readCatalogCache()?.at ?? null);
       load(list.length ? list : demoTitles());
       if (fresh) setCatalogMsg(list.length ? `Catálogo actualizado: ${list.length} títulos.` : "No se encontraron vídeos.");
     } catch {
@@ -507,7 +531,7 @@ export function TvApp() {
                 ) : (
                   <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
                 )}{" "}
-                {window.nofufa ? "Añadir carpeta" : loading ? "Sincronizando…" : "Recargar catálogo"}
+                {window.nofufa ? "Añadir carpeta" : loading ? "Sincronizando…" : "Recargar catálogo (sincronizar)"}
               </button>
               {root && (
                 <button
@@ -520,6 +544,12 @@ export function TvApp() {
               )}
             </div>
             {catalogMsg && !window.nofufa && <p className="mt-2 text-sm text-primary">{catalogMsg}</p>}
+            {!window.nofufa && syncAt && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Última sincronización: {new Date(syncAt).toLocaleString("es-ES")}. El catálogo se guarda en este
+                navegador y solo se actualiza al pulsar "Recargar catálogo".
+              </p>
+            )}
             {!window.nofufa && <ApiKeyField onSaved={() => loadCatalog(true)} />}
             <p className={`mt-2 text-xs text-muted-foreground ${window.nofufa ? "" : "hidden"}`}>
               Organiza por carpetas: cada subcarpeta es una serie o película. Usa carpetas llamadas
@@ -531,11 +561,6 @@ export function TvApp() {
               Reproducción
             </p>
             <div className="mt-2 space-y-2 text-sm">
-              <Toggle
-                label="Siguiente episodio automático"
-                on={s.settings.autoplayNext}
-                set={(v) => actions.setSettings({ autoplayNext: v })}
-              />
               <Toggle
                 label="Modo TV (flechas / mando, sin ratón)"
                 on={s.settings.tvMode}
@@ -612,6 +637,10 @@ export function TvApp() {
             </div>
           </div>
         </div>
+      )}
+
+      {loading && (titles.length === 0 || !settingsOpen) && (
+        <LoadingScreen text={titles.length ? "Sincronizando catálogo…" : "Cargando catálogo…"} />
       )}
 
       {play && cur && curTitle && (
@@ -720,17 +749,15 @@ function FilterBar({
   f,
   set,
   titles,
-  hasRes,
 }: {
   f: LibFilter;
   set: (f: LibFilter) => void;
   titles: Title[];
-  hasRes: boolean;
+  hasRes?: boolean;
 }) {
   const genres = genresOf(titles);
-  const years = yearsOf(titles);
   const sel = "rounded-md bg-secondary px-3 py-1.5 text-sm font-semibold";
-  const active = f.genre || f.year || f.res;
+  const active = f.genre || f.name !== EMPTY_FILTER.name || f.date || f.recent;
   return (
     <div className="mb-6 flex flex-wrap items-center gap-2 [&>select]:max-w-full">
       <select aria-label="Género" value={f.genre} onChange={(e) => set({ ...f, genre: e.target.value })} className={sel}>
@@ -741,46 +768,60 @@ function FilterBar({
           </option>
         ))}
       </select>
-      <select aria-label="Año" value={f.year} onChange={(e) => set({ ...f, year: e.target.value })} className={sel}>
-        <option value="">Cualquier año</option>
-        {years.map((y) => (
-          <option key={y} value={y}>
-            {y}
-          </option>
-        ))}
-      </select>
       <select
-        aria-label="Resolución"
-        value={f.res}
-        onChange={(e) => set({ ...f, res: e.target.value as LibFilter["res"] })}
-        className={sel}
-        title={hasRes ? undefined : "Se calcula al analizar la biblioteca"}
-      >
-        <option value="">Cualquier calidad</option>
-        {(Object.keys(RES_LABEL) as (keyof typeof RES_LABEL)[]).map((r) => (
-          <option key={r} value={r}>
-            {RES_LABEL[r]}
-          </option>
-        ))}
-      </select>
-      <select
-        aria-label="Ordenar"
-        value={f.sort}
-        onChange={(e) => set({ ...f, sort: e.target.value as LibFilter["sort"] })}
+        aria-label="Nombre"
+        value={f.name}
+        onChange={(e) => set({ ...f, name: e.target.value as LibFilter["name"] })}
         className={sel}
       >
-        <option value="name">Orden: nombre</option>
-        <option value="year">Orden: año</option>
-        <option value="added">Orden: añadidos recientemente</option>
+        <option value="az">Nombre: A-Z</option>
+        <option value="za">Nombre: Z-A</option>
       </select>
+      <select
+        aria-label="Fecha"
+        value={f.date}
+        onChange={(e) => set({ ...f, date: e.target.value as LibFilter["date"] })}
+        className={sel}
+      >
+        <option value="">Fecha: cualquiera</option>
+        <option value="new">Fecha: más nuevo</option>
+        <option value="old">Fecha: más viejo</option>
+      </select>
+      <button
+        onClick={() => set({ ...f, recent: !f.recent })}
+        aria-pressed={f.recent}
+        className={`rounded-md px-3 py-1.5 text-sm font-semibold ${f.recent ? "bg-primary text-primary-foreground" : "bg-secondary hover:bg-accent"}`}
+      >
+        Añadidos recientemente
+      </button>
       {active && (
         <button
-          onClick={() => set({ ...EMPTY_FILTER, sort: f.sort })}
+          onClick={() => set(EMPTY_FILTER)}
           className="text-sm font-semibold text-muted-foreground hover:text-foreground"
         >
           Quitar filtros
         </button>
       )}
+    </div>
+  );
+}
+
+function LoadingScreen({ text }: { text: string }) {
+  return (
+    <div className="loading-screen fixed inset-0 z-[60] grid place-items-center bg-background" role="status" aria-live="polite">
+      <div className="flex flex-col items-center gap-6">
+        <div className="relative grid size-28 place-items-center">
+          <span className="loading-ring absolute inset-0 rounded-full border-4 border-primary/20 border-t-primary" />
+          <img src={logo} alt="" className="loading-logo size-16 rounded-full" />
+        </div>
+        <p className="text-lg font-extrabold tracking-tight">
+          Nofufa<span className="text-primary"> Video</span>
+        </p>
+        <div className="loading-bar h-1 w-48 overflow-hidden rounded-full bg-secondary">
+          <span className="block h-full w-1/3 rounded-full bg-primary" />
+        </div>
+        <p className="text-sm text-muted-foreground">{text}</p>
+      </div>
     </div>
   );
 }

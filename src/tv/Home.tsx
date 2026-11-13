@@ -203,26 +203,6 @@ export function Home({ titles, onOpen, onPlay }: Props) {
       )}
 
       <div className="relative -mt-10 space-y-2 sm:-mt-14 sm:space-y-4">
-        {s.settings.showContinue && cont.length > 0 && (
-          <Row title="Seguir viendo">
-            {cont.map(({ title: t, ep, t: at, d }) => (
-              <Card
-                key={t.id}
-                t={t}
-                thumbEp={ep}
-                onOpen={() => onOpen(t)}
-                onPlay={() => onPlay(t, ep, at)}
-                progress={at / d}
-                sub={
-                  t.kind === "movie" || t.episodes.length === 1
-                    ? (t.meta?.title ?? t.name)
-                    : `${t.meta?.title ?? t.name} · T${ep.season} E${ep.number}`
-                }
-                onRemove={() => actions.removeContinue(t.id)}
-              />
-            ))}
-          </Row>
-        )}
         {list.length > 0 && (
           <Row title="Mi lista">
             {list.map((t) => (

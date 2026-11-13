@@ -23,37 +23,39 @@ export const RES_LABEL: Record<ResClass, string> = {
 
 export interface LibFilter {
   genre: string;
-  year: string;
-  res: "" | ResClass;
-  sort: "name" | "year" | "added";
+  /** orden por nombre: A-Z / Z-A */
+  name: "" | "az" | "za";
+  /** orden por fecha de estreno: nuevo / viejo */
+  date: "" | "new" | "old";
+  /** añadidos recientemente primero */
+  recent: boolean;
 }
-export const EMPTY_FILTER: LibFilter = { genre: "", year: "", res: "", sort: "name" };
+export const EMPTY_FILTER: LibFilter = { genre: "", name: "az", date: "", recent: false };
 
 export const yearNum = (t: Title) => {
   const m = String(t.meta?.year ?? "").match(/(19|20)\d{2}/);
   return m ? +m[0] : 0;
 };
 
-export function filterTitles(
-  titles: Title[],
-  f: LibFilter,
-  heights: Record<string, number> = {},
-): Title[] {
-  const out = titles.filter((t) => {
-    if (f.genre && !(t.meta?.genres ?? []).some((g) => g.toLowerCase() === f.genre.toLowerCase()))
-      return false;
-    if (f.year && String(yearNum(t)) !== f.year) return false;
-    if (f.res && resolutionClass(heights[t.id] ?? 0) !== f.res) return false;
-    return true;
-  });
-  const name = (t: Title) => (t.meta?.title ?? t.name).toLowerCase();
-  out.sort((a, b) =>
-    f.sort === "year"
-      ? yearNum(b) - yearNum(a) || name(a).localeCompare(name(b))
-      : f.sort === "added"
-        ? b.added - a.added
-        : name(a).localeCompare(name(b)),
+/** Filtra por género y ordena: añadidos recientes > fecha > nombre (cada uno independiente). */
+export function filterTitles(titles: Title[], f: LibFilter, _heights: Record<string, number> = {}): Title[] {
+  const out = titles.filter(
+    (t) => !f.genre || (t.meta?.genres ?? []).some((g) => g.toLowerCase() === f.genre.toLowerCase()),
   );
+  const name = (t: Title) => (t.meta?.title ?? t.name).toLowerCase();
+  out.sort((a, b) => {
+    if (f.recent && b.added !== a.added) return b.added - a.added;
+    if (f.date) {
+      const ya = yearNum(a), yb = yearNum(b);
+      if (ya !== yb) {
+        if (!ya) return 1;
+        if (!yb) return -1;
+        return f.date === "new" ? yb - ya : ya - yb;
+      }
+    }
+    if (f.name === "za") return name(b).localeCompare(name(a));
+    return name(a).localeCompare(name(b));
+  });
   return out;
 }
 
@@ -61,9 +63,6 @@ export function genresOf(titles: Title[]): string[] {
   const s = new Set<string>();
   titles.forEach((t) => t.meta?.genres.forEach((g) => s.add(g)));
   return [...s].sort((a, b) => a.localeCompare(b));
-}
-export function yearsOf(titles: Title[]): string[] {
-  return [...new Set(titles.map(yearNum).filter(Boolean))].sort((a, b) => b - a).map(String);
 }
 
 /** ¿Está todo el título visto? */

@@ -162,11 +162,34 @@ export function mergeVideos(...lists: LuluVideo[][]): LuluVideo[] {
   return [...seen.values()];
 }
 
-/** Carga el catálogo: API en directo (si hay clave) + videos.json, combinados. */
-export async function loadLulu(_fresh = false): Promise<Title[]> {
+/* ---------- catálogo guardado: persiste entre recargas (F5) ---------- */
+const CACHE_KEY = "nofufa.catalog.v1";
+export interface CatalogCache { at: number; videos: LuluVideo[] }
+export function readCatalogCache(): CatalogCache | null {
+  try {
+    const c = JSON.parse(localStorage.getItem(CACHE_KEY) ?? "null");
+    return c && Array.isArray(c.videos) && c.videos.length ? c : null;
+  } catch { return null; }
+}
+function writeCatalogCache(videos: LuluVideo[]) {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), videos })); } catch { /* lleno */ }
+}
+
+/**
+ * Carga el catálogo. Sin `fresh` usa el catálogo guardado en el navegador (no se resetea al
+ * pulsar F5). Solo se descarga de nuevo la primera vez o al sincronizar desde Ajustes.
+ */
+export async function loadLulu(fresh = false): Promise<Title[]> {
+  if (!fresh) {
+    const c = readCatalogCache();
+    if (c) return titlesFromLulu(c.videos);
+  }
   const [api, json] = await Promise.all([
     fromApi().catch(() => [] as LuluVideo[]),
     fromJson().catch(() => [] as LuluVideo[]),
   ]);
-  return titlesFromLulu(mergeVideos(api, json));
+  const all = mergeVideos(api, json);
+  if (all.length) writeCatalogCache(all);
+  else if (fresh) { const c = readCatalogCache(); if (c) return titlesFromLulu(c.videos); }
+  return titlesFromLulu(all);
 }

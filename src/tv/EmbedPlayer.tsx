@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Maximize2, Minimize2, SkipBack, SkipForward } from "lucide-react";
+import { ArrowLeft, Maximize2, Minimize2, SkipBack, SkipForward, RefreshCw, ExternalLink, Copy, Check, Bookmark, CheckCircle, RectangleHorizontal, Timer } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { Episode, Title } from "./types";
 import { episodeTitle } from "./library";
 import { embedSrc } from "./lulu";
@@ -48,54 +49,46 @@ export function EmbedPlayer({
   const [fs, setFs] = useState(false);
   const [bar, setBar] = useState(true);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const settings = useStore().settings;
-
-  /*
-   * El vídeo va dentro del iframe de LuluStream (otro dominio): no podemos leer su tiempo real.
-   * Estimamos la posición con un reloj que avanza mientras el reproductor está abierto y la
-   * pestaña visible, y la guardamos en el historial / "Seguir viendo".
-   */
-  const dur = episode.duration ?? 0;
-  const pos = useRef(startAt);
-  const [time, setTime] = useState(startAt);
+  const state = useStore();
+  const [reload, setReload] = useState(0);
+  const [cinema, setCinema] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [sleepMinutes, setSleepMinutes] = useState(0);
+  const [sleepLeft, setSleepLeft] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  const copyLink = async () => {
+    try { await navigator.clipboard.writeText(episode.url); setCopied(true); }
+    catch { setNotice("No se pudo copiar el enlace. Puedes abrirlo en otra pestaña."); }
+  };
   useEffect(() => {
-    if (hidden) return;
-    pos.current = startAt;
-    setTime(startAt);
-    let last = Date.now();
-    let savedAt = Date.now();
-    const save = () => {
-      if (pos.current - startAt < 5) return; // apenas se ha visto: no ensuciar el historial
-      actions.setProgress(episode.id, title.id, pos.current, dur);
-    };
-    const i = setInterval(() => {
-      const now = Date.now();
-      const dt = (now - last) / 1000;
-      last = now;
-      if (document.hidden) return;
-      pos.current = dur ? Math.min(dur, pos.current + dt) : pos.current + dt;
-      setTime(pos.current);
-      if (now - savedAt > 10_000) {
-        savedAt = now;
-        save();
-      }
+    setLoading(true); setNotice(""); setCopied(false); setSleepMinutes(0);
+  }, [episode.id]);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2500);
+    return () => clearTimeout(timer);
+  }, [copied]);
+  useEffect(() => {
+    if (!sleepMinutes || hidden) { setSleepLeft(0); return; }
+    const until = Date.now() + sleepMinutes * 60_000;
+    setSleepLeft(sleepMinutes * 60);
+    const timer = setInterval(() => {
+      const left = Math.max(0, Math.ceil((until - Date.now()) / 1000));
+      setSleepLeft(left);
+      if (!left) { clearInterval(timer); closeRef.current(); }
     }, 1000);
-    return () => {
-      clearInterval(i);
-      save();
-    };
-  }, [episode.id, title.id, startAt, dur, hidden]);
-
-  const remaining = dur - time;
-  const showNext = !!next && settings.autoplayNext && dur > 60 && remaining > 0 && remaining < (settings.nextAt || 20);
-  const ended = !!next && settings.autoplayNext && dur > 60 && remaining <= 0;
-  const advanced = useRef("");
+    return () => clearInterval(timer);
+  }, [sleepMinutes, hidden, episode.id]);
   useEffect(() => {
-    if (ended && !hidden && advanced.current !== episode.id) {
-      advanced.current = episode.id;
-      onNext();
-    }
-  }, [ended, hidden, onNext, episode.id]);
+    if (!loading || hidden) return;
+    const timer = setTimeout(() => setNotice("Si el vídeo no aparece, recarga el reproductor o ábrelo aparte."), 12000);
+    return () => clearTimeout(timer);
+  }, [loading, hidden, reload, episode.id]);
+
+  // Cross-origin playback cannot be measured: never infer completion or advance episodes.
 
   const toggleFs = useCallback(async () => {
     const d = document as FsDoc;
@@ -107,7 +100,7 @@ export function EmbedPlayer({
         await (el.requestFullscreen?.({ navigationUI: "hide" }) ?? el.webkitRequestFullscreen?.());
       }
     } catch {
-      /* el navegador lo ha denegado */
+      setNotice("Este navegador no permite activar la pantalla completa desde aquí.");
     }
   }, []);
 
@@ -145,6 +138,7 @@ export function EmbedPlayer({
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       if (hidden) return;
+      if (e.ctrlKey || e.altKey || e.metaKey || e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement || (e.target instanceof HTMLElement && e.target.isContentEditable)) return;
       const key = e.key.toLowerCase();
       if (key === "escape" || key === "backspace") {
         if (!fsElement()) onClose();
@@ -156,7 +150,6 @@ export function EmbedPlayer({
     return () => window.removeEventListener("keydown", k);
   }, [onClose, onNext, onPrev, next, prev, toggleFs, hidden]);
 
-  const btn = "flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-overlay-foreground/10";
 
   return (
     <div
@@ -168,14 +161,14 @@ export function EmbedPlayer({
       )}
       <div
         onMouseMove={showBar}
-        className={`flex items-center gap-3 px-4 py-3 ${
+        className={`flex flex-wrap items-center gap-2 px-3 py-3 ${
           fs ? `absolute inset-x-0 top-0 z-10 bg-scrim/90 transition-opacity duration-300 ${bar ? "opacity-100" : "pointer-events-none opacity-0"}` : ""
         }`}
       >
-        <button onClick={onClose} aria-label="Volver" className="rounded-full p-2 hover:bg-overlay-foreground/10">
+        <Button variant="player" onClick={onClose} aria-label="Volver" size="icon">
           <ArrowLeft className="size-6" />
-        </button>
-        <div className="min-w-0 flex-1">
+        </Button>
+        <div className="min-w-0 flex-1 basis-28">
           <p className="truncate text-lg font-bold">{title.meta?.title ?? title.name}</p>
           {title.episodes.length > 1 && (
             <p className="truncate text-sm opacity-70">
@@ -184,41 +177,53 @@ export function EmbedPlayer({
           )}
         </div>
         {prev && onPrev && (
-          <button onClick={onPrev} className={btn} title="Episodio anterior (B)">
+          <Button variant="player" onClick={onPrev} size="sm" title="Episodio anterior (B)">
             <SkipBack className="size-4" /> Anterior
-          </button>
+          </Button>
         )}
         {next && (
-          <button onClick={onNext} className={btn} title={broadcast ? "Siguiente aleatorio (N)" : "Siguiente episodio (N)"}>
+          <Button variant="player" onClick={onNext} size="sm" title={broadcast ? "Siguiente aleatorio (N)" : "Siguiente episodio (N)"}>
             <SkipForward className="size-4" /> Siguiente
-          </button>
+          </Button>
         )}
-        <button
+        <Button variant="player"
           onClick={toggleFs}
           aria-label={fs ? "Salir de pantalla completa" : "Pantalla completa"}
           title={fs ? "Salir de pantalla completa (F)" : "Pantalla completa (F)"}
-          className="rounded-full p-2 hover:bg-overlay-foreground/10"
+          size="icon"
         >
           {fs ? <Minimize2 className="size-5" /> : <Maximize2 className="size-5" />}
-        </button>
+        </Button>
       </div>
-      <iframe
-        key={episode.url}
-        src={embedSrc(episode.url, startAt, broadcast)}
-        title={episodeTitle(title, episode)}
-        className="w-full flex-1 border-0"
-        allow={EMBED_ALLOW}
-        allowFullScreen
-        referrerPolicy="origin"
-      />
-      {showNext && (
-        <div className="absolute bottom-6 right-6 z-10 flex items-center gap-3 rounded-lg bg-scrim/90 px-4 py-3 shadow-lg">
-          <span className="text-sm">Siguiente episodio en {Math.ceil(remaining)} s</span>
-          <button onClick={onNext} className="rounded-md bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground">
-            Ver ahora
-          </button>
-        </div>
-      )}
+      <div className={`embed-stage ${cinema && !fs ? "embed-stage-cinema" : ""}`}>
+        <iframe
+          key={`${episode.id}-${reload}`}
+          src={embedSrc(episode.url, startAt, broadcast)}
+          title={episodeTitle(title, episode)}
+          className="embed-frame"
+          allow={EMBED_ALLOW}
+          allowFullScreen
+          referrerPolicy="origin"
+          onLoad={() => { setLoading(false); setNotice(""); }}
+          onError={() => { setLoading(false); setNotice("No se pudo cargar el reproductor. Prueba a recargarlo o abrirlo aparte."); }}
+        />
+        {notice && <div className="embed-notice" role="status">{notice}</div>}
+      </div>
+      <div className="embed-tools" aria-label="Herramientas del reproductor">
+        <Button variant="player" size="icon" aria-label="Recargar reproductor" title="Recargar reproductor" onClick={() => { setLoading(true); setNotice(""); setReload((n) => n + 1); }}><RefreshCw /></Button>
+        <Button variant="player" size="icon" aria-label="Modo cine" title="Modo cine" aria-pressed={cinema} onClick={() => setCinema((v) => !v)}><RectangleHorizontal /></Button>
+        <Button variant="player" size="icon" asChild><a href={episode.url} target="_blank" rel="noopener noreferrer" aria-label="Abrir reproductor aparte" title="Abrir reproductor aparte"><ExternalLink /></a></Button>
+        <Button variant="player" size="icon" aria-label="Copiar enlace" title={copied ? "Enlace copiado" : "Copiar enlace"} onClick={copyLink}>{copied ? <Check /> : <Copy />}</Button>
+        <Button variant="player" size="icon" aria-label="Guardar en Mi lista" title="Guardar en Mi lista" aria-pressed={state.watchlist.includes(title.id)} onClick={() => actions.toggleWatchlist(title.id)}><Bookmark /></Button>
+        <Button variant="player" size="icon" aria-label="Marcar episodio como visto" title="Marcar episodio como visto" aria-pressed={!!state.watched[episode.id]} onClick={() => actions.setWatched([episode.id], !state.watched[episode.id])}><CheckCircle /></Button>
+        <label className="flex items-center gap-2 text-sm"><Timer className="size-4" aria-hidden="true" />
+          <select aria-label="Temporizador de cierre" className="embed-timer" value={sleepMinutes} onChange={(e) => setSleepMinutes(Number(e.target.value))}>
+            <option value={0}>Sin temporizador</option><option value={15}>Cerrar en 15 min</option><option value={30}>Cerrar en 30 min</option><option value={60}>Cerrar en 60 min</option>
+          </select>
+        </label>
+        {sleepLeft > 0 && <span className="text-sm text-muted-foreground" role="status">{Math.floor(sleepLeft / 60)}:{String(sleepLeft % 60).padStart(2, "0")}</span>}
+        {copied && <span role="status" className="text-sm">Enlace copiado</span>}
+      </div>
     </div>
   );
 }
