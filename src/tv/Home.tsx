@@ -1,0 +1,341 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Info, Play, Plus, Check, ChevronLeft, ChevronRight, Pause } from "lucide-react";
+import type { Episode, Kind, Title } from "./types";
+import { actions, useStore } from "./store";
+import { Art, Card, KIND_LABEL, PosterArt, PosterCard, Row, backdrop } from "./ui";
+
+interface Props {
+  titles: Title[];
+  onOpen: (t: Title) => void;
+  onPlay: (t: Title, ep: Episode, at?: number) => void;
+}
+
+export function Home({ titles, onOpen, onPlay }: Props) {
+  const s = useStore();
+  const byId = useMemo(() => new Map(titles.map((t) => [t.id, t])), [titles]);
+
+  const cont = useMemo(() => {
+    const latest = new Map<string, { ep: Episode; t: number; d: number; at: number }>();
+    for (const [epId, p] of Object.entries(s.progress)) {
+      const t = byId.get(p.titleId);
+      if (!t) continue;
+      const hidden = s.hiddenContinue[t.id];
+      if (hidden && hidden > p.at) continue;
+      const ep = t.episodes.find((e) => e.id === epId);
+      if (!ep) continue;
+      const cur = latest.get(t.id);
+      if (!cur || cur.at < p.at) latest.set(t.id, { ep, ...p });
+    }
+    return [...latest.entries()]
+      .sort((a, b) => b[1].at - a[1].at)
+      .slice(0, s.settings.continueLimit || 20)
+      .map(([id, v]) => ({ title: byId.get(id)!, ...v }));
+  }, [s.progress, s.hiddenContinue, s.settings.continueLimit, byId]);
+
+  const featured = useMemo(() => {
+    const withArt = titles.filter((t) => backdrop(t));
+    return (withArt.length ? withArt : titles).slice(0, 6);
+  }, [titles]);
+  const [hi, setHi] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [tick, setTick] = useState(0); // reinicia la barra al cambiar manualmente
+  const n = Math.max(1, featured.length);
+  const DURATION = 8000;
+  const go = (d: number) => {
+    setHi((h) => (h + d + n) % n);
+    setTick((k) => k + 1);
+  };
+  useEffect(() => {
+    if (paused || featured.length < 2) return;
+    const i = setTimeout(() => setHi((h) => (h + 1) % n), DURATION);
+    return () => clearTimeout(i);
+  }, [paused, hi, tick, n, featured.length]);
+  // arrastrar / deslizar el destacado
+  const drag = useRef<{ x: number; moved: boolean } | null>(null);
+  const hero = featured[hi % Math.max(1, featured.length)];
+
+  const list = s.watchlist.map((id) => byId.get(id)).filter(Boolean) as Title[];
+  const recent = [...titles].sort((a, b) => b.added - a.added).slice(0, 20);
+  const liked = titles.filter((t) => s.rating[t.id] === 1);
+  const kinds: [Kind, string][] = [
+    ["series", "Series"],
+    ["anime", "Anime"],
+    ["movie", "Películas"],
+  ];
+
+  return (
+    <div className="pb-24 md:pb-16">
+      {hero && (
+        <div
+          className="group/hero relative h-[68vh] min-h-[26rem] touch-pan-y select-none sm:h-[78vh] sm:min-h-[30rem]"
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(false)}
+          onPointerDown={(e) => (drag.current = { x: e.clientX, moved: false })}
+          onPointerUp={(e) => {
+            const d = drag.current;
+            drag.current = null;
+            if (!d) return;
+            const dx = e.clientX - d.x;
+            if (Math.abs(dx) > 60) go(dx < 0 ? 1 : -1);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowLeft") go(-1);
+            if (e.key === "ArrowRight") go(1);
+          }}
+        >
+          <div className="absolute inset-0 overflow-hidden">
+            {featured.map((t, i) => (
+              <div
+                key={t.id}
+                className={`absolute inset-0 transition-all duration-1000 ${i === hi ? "scale-100 opacity-100" : "scale-105 opacity-0"}`}
+              >
+                <Art src={backdrop(t)} alt={t.name} className="pointer-events-none size-full object-top" bare />
+              </div>
+            ))}
+            <div className="bg-hero-fade absolute inset-0" />
+          </div>
+          <div className="relative flex h-full max-w-2xl flex-col justify-end gap-3 px-4 pb-20 sm:gap-4 sm:px-8 sm:pb-24 lg:px-12">
+            <span className="w-fit rounded bg-foreground/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wider">
+              {KIND_LABEL[hero.kind]}
+            </span>
+            {hero.meta?.logo ? (
+              <img
+                src={hero.meta.logo}
+                alt={hero.meta.title}
+                className="max-h-20 max-w-[70vw] object-contain object-left sm:max-h-28 sm:max-w-md"
+              />
+            ) : (
+              <h1 className="text-3xl font-extrabold sm:text-5xl leading-none tracking-tight">
+                {hero.meta?.title ?? hero.name}
+              </h1>
+            )}
+            {hero.meta?.description && (
+              <p className="line-clamp-2 text-sm sm:line-clamp-3 sm:text-lg">{hero.meta.description}</p>
+            )}
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => onPlay(hero, hero.episodes[0]!)}
+                className="btn-play"
+              >
+                <Play className="size-5 fill-current" /> Reproducir
+              </button>
+              <button
+                onClick={() => onOpen(hero)}
+                className="btn-ghost"
+              >
+                <Info className="size-5" /> <span className="hidden sm:inline">Más información</span><span className="sm:hidden">Info</span>
+              </button>
+              <button
+                onClick={() => actions.toggleWatchlist(hero.id)}
+                aria-label="Mi lista"
+                className="btn-round"
+              >
+                {s.watchlist.includes(hero.id) ? (
+                  <Check className="size-5" />
+                ) : (
+                  <Plus className="size-5" />
+                )}
+              </button>
+            </div>
+          </div>
+          {featured.length > 1 && (
+            <>
+              <button
+                aria-label="Anterior destacado"
+                onClick={() => go(-1)}
+                className="btn-round absolute left-3 top-1/2 max-md:hidden -translate-y-1/2 opacity-0 transition group-hover/hero:opacity-100"
+              >
+                <ChevronLeft className="size-6" />
+              </button>
+              <button
+                aria-label="Siguiente destacado"
+                onClick={() => go(1)}
+                className="btn-round absolute right-3 top-1/2 max-md:hidden -translate-y-1/2 opacity-0 transition group-hover/hero:opacity-100"
+              >
+                <ChevronRight className="size-6" />
+              </button>
+              <div className="absolute bottom-14 right-4 hidden items-end gap-2 sm:bottom-16 sm:right-12 md:flex">
+                {paused && <Pause className="mb-1 size-4 text-foreground/70" />}
+                {featured.map((t, i) => (
+                  <button
+                    key={t.id}
+                    aria-label={`Destacado ${i + 1}: ${t.meta?.title ?? t.name}`}
+                    onClick={() => {
+                      setHi(i);
+                      setTick((k) => k + 1);
+                    }}
+                    className={`relative w-14 shrink-0 overflow-hidden rounded-md transition-all duration-300 lg:w-16 ${i === hi ? "-translate-y-2 ring-2 ring-foreground" : "opacity-60 hover:opacity-100"}`}
+                  >
+                    <div className="relative aspect-[2/3]">
+                      <PosterArt t={t} className="absolute inset-0 size-full" />
+                    </div>
+                    {i === hi && (
+                      <div className="absolute inset-x-0 bottom-0 h-1 bg-foreground/30">
+                        <div
+                          key={`${hi}-${tick}`}
+                          className="h-full bg-primary"
+                          style={{
+                            animation: `hero-progress ${DURATION}ms linear forwards`,
+                            animationPlayState: paused ? "paused" : "running",
+                          }}
+                        />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+              <div className="absolute bottom-14 left-4 flex gap-2 md:hidden">
+                {featured.map((t, i) => (
+                  <button
+                    key={t.id}
+                    aria-label={`Destacado ${i + 1}`}
+                    onClick={() => {
+                      setHi(i);
+                      setTick((k) => k + 1);
+                    }}
+                    className={`h-1.5 rounded-full transition-all ${i === hi ? "w-8 bg-foreground" : "w-3 bg-foreground/40"}`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      <div className="relative -mt-10 space-y-2 sm:-mt-14 sm:space-y-4">
+        {list.length > 0 && (
+          <Row title="Mi lista">
+            {list.map((t) => (
+              <PosterCard key={t.id} t={t} onOpen={() => onOpen(t)} />
+            ))}
+          </Row>
+        )}
+        <Row title="Añadidos recientemente">
+          {recent.map((t) => (
+            <Card
+              key={t.id}
+              t={t}
+              thumbEp={t.episodes[0]}
+              onOpen={() => onOpen(t)}
+              sub={t.meta?.title ?? t.name}
+            />
+          ))}
+        </Row>
+        {kinds.map(([k, label]) => {
+          const items = titles.filter((t) => t.kind === k);
+          return items.length ? (
+            <Row key={k} title={label}>
+              {items.map((t) => (
+                <PosterCard key={t.id} t={t} onOpen={() => onOpen(t)} />
+              ))}
+            </Row>
+          ) : null;
+        })}
+        {liked.length > 0 && (
+          <Row title="Te gustan">
+            {liked.map((t) => (
+              <PosterCard key={t.id} t={t} onOpen={() => onOpen(t)} />
+            ))}
+          </Row>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function Browse({
+  titles,
+  heading,
+  onOpen,
+  empty,
+  toolbar,
+  pageSize = 24,
+}: {
+  titles: Title[];
+  heading: string;
+  onOpen: (t: Title) => void;
+  empty: string;
+  toolbar?: React.ReactNode;
+  pageSize?: number;
+}) {
+  const [page, setPage] = useState(1);
+  const sig = `${titles.length}:${titles[0]?.id ?? ""}:${titles[titles.length - 1]?.id ?? ""}`;
+  useEffect(() => {
+    setPage(1);
+  }, [sig]);
+  const totalPages = Math.max(1, Math.ceil(titles.length / pageSize));
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+  const start = (page - 1) * pageSize;
+  const pageItems = titles.slice(start, start + pageSize);
+  // números de página visibles (amigable)
+  const pageNumbers: (number | "...")[] = [];
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pageNumbers.push(i);
+  } else {
+    pageNumbers.push(1);
+    const left = Math.max(2, page - 1);
+    const right = Math.min(totalPages - 1, page + 1);
+    if (left > 2) pageNumbers.push("...");
+    for (let i = left; i <= right; i++) pageNumbers.push(i);
+    if (right < totalPages - 1) pageNumbers.push("...");
+    pageNumbers.push(totalPages);
+  }
+  return (
+    <div className="px-4 pb-24 pt-20 sm:px-8 sm:pt-28 md:pb-16 lg:px-12">
+      <h1 className="mb-4 text-2xl font-extrabold sm:mb-6 sm:text-3xl">{heading}</h1>
+      {toolbar}
+      {titles.length === 0 ? (
+        <p className="text-muted-foreground">{empty}</p>
+      ) : (
+        <>
+          <p className="mb-3 text-sm text-muted-foreground">
+            {titles.length} títulos · página {page} de {totalPages}
+          </p>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-x-3 gap-y-5 sm:grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] lg:gap-x-4 [&>button]:w-full">
+            {pageItems.map((t) => (
+              <PosterCard key={t.id} t={t} onOpen={() => onOpen(t)} />
+            ))}
+          </div>
+          {totalPages > 1 && (
+            <nav className="mt-8 flex flex-wrap items-center justify-center gap-1" aria-label="Paginación">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="rounded-md px-3 py-2 text-sm font-semibold disabled:opacity-40 hover:bg-foreground/10"
+              >
+                Anterior
+              </button>
+              {pageNumbers.map((n, i) =>
+                n === "..." ? (
+                  <span key={`e${i}`} className="px-2 text-muted-foreground">
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={n}
+                    onClick={() => setPage(n)}
+                    aria-current={n === page ? "page" : undefined}
+                    className={`min-w-9 rounded-md px-3 py-2 text-sm font-semibold ${
+                      n === page ? "bg-primary text-primary-foreground" : "hover:bg-foreground/10"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ),
+              )}
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="rounded-md px-3 py-2 text-sm font-semibold disabled:opacity-40 hover:bg-foreground/10"
+              >
+                Siguiente
+              </button>
+            </nav>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
