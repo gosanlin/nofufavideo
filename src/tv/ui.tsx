@@ -14,8 +14,9 @@ export function poster(t: Title) {
   return t.meta?.poster ?? t.images?.poster ?? t.images?.folder ?? t.images?.cover;
 }
 export function backdrop(t: Title) {
-  // Las carátulas horizontales usan la misma imagen de portada del título.
-  return poster(t) ?? t.meta?.background ?? t.images?.fanart ?? t.images?.background;
+  // Arte horizontal alternativo (fanart/background) para carruseles y tarjetas 16:9;
+  // solo si no hay, se recurre a la portada vertical principal.
+  return t.meta?.background ?? t.images?.fanart ?? t.images?.background ?? poster(t);
 }
 
 /* ---------- miniaturas de episodio (cola con 2 a la vez) ---------- */

@@ -7,9 +7,9 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Nofufa Video — Series, anime y películas" },
-      { name: "description", content: "Tus series, anime y películas en streaming desde Luluvido." },
+      { name: "description", content: "Series, anime y películas en streaming." },
       { property: "og:title", content: "Nofufa Video — Series, anime y películas" },
-      { property: "og:description", content: "Tus series, anime y películas en streaming desde Luluvido." },
+      { property: "og:description", content: "Series, anime y películas en streaming." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

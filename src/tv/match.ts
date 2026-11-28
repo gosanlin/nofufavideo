@@ -69,7 +69,10 @@ export function score(q: string, c: string, qYear?: number, cYear?: number) {
       sa = new Set(ta);
     const hit = ta.filter((t) => sb.has(t)).length;
     const dice = (2 * hit) / (sa.size + sb.size);
-    const contained = ` ${b} `.includes(` ${a} `) || ` ${a} `.includes(` ${b} `);
+    // Solo cuenta como "contenido" si el candidato contiene TODA la consulta;
+    // lo contrario (la consulta contiene al candidato) daba falsos positivos
+    // (p. ej. "Dragon Ball Z - Dead Zone" se emparejaba con "Dead Zone").
+    const contained = ` ${b} `.includes(` ${a} `);
     s = contained && Math.min(ta.length, tb.length) >= 1 ? Math.max(75, dice * 90) : dice * 90;
   }
   if (qYear && cYear) s += Math.abs(qYear - cYear) <= 1 ? 8 : -15;

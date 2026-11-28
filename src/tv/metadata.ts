@@ -3,12 +3,13 @@ import type { EpisodeMeta, Kind, Meta, MetaCandidate } from "./types";
 
 import { MIN_SCORE, fold, queryVariants, score, type Query } from "./match";
 
-const CACHE_KEY = "nofufa-meta-v6"; // v6: nombres de episodio también en español
+const CACHE_KEY = "nofufa-meta-v7"; // v7: evita emparejar subconjuntos (Dead Zone)
 const MISS_TTL = 2 * 24 * 3600_000; // los "no encontrado" se reintentan a los 2 días
 type Entry = { m: Meta | null; t: number };
 let disk: Record<string, Entry> = {};
 try {
   localStorage.removeItem("nofufa-meta-v5");
+  localStorage.removeItem("nofufa-meta-v6");
   disk = JSON.parse(localStorage.getItem(CACHE_KEY) ?? "{}");
 } catch {
   /* */
@@ -275,7 +276,7 @@ export function fetchMeta(name: string, kind: Kind): Promise<Meta | null> {
 export function clearMetaCache() {
   disk = {};
   mem.clear();
-  for (const k of ["nofufa-meta-v3", "nofufa-meta-v4", "nofufa-meta-v5", CACHE_KEY]) localStorage.removeItem(k);
+  for (const k of ["nofufa-meta-v3", "nofufa-meta-v4", "nofufa-meta-v5", "nofufa-meta-v6", CACHE_KEY]) localStorage.removeItem(k);
 }
 
 /* ---------- "Corregir datos": varias opciones y búsqueda manual ---------- */
